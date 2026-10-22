@@ -686,8 +686,12 @@ function markSequenced(n, live){
   score += pts; log(`SEQUENCED ${n.name} · k=${n.degree} · +${pts}`);
 }
 // ---------------------------------------------------------------- sequencing drones (one earned per completed objective)
-const drones = [], DRONE_R = 9, DRONE_SCAN_R = 220, DRONE_MAX = 24;
+const drones = [], DRONE_R = 9, DRONE_LEAD = 32, DRONE_SCAN_R = 140, DRONE_MAX = 24;
 const droneGeo = new THREE.OctahedronGeometry(.7, 0);
+function dronePatrolOffset(d, i){
+  const r = DRONE_R + (i%4)*1.5, sn = Math.sin(d.ang)*r;
+  return _v.set(Math.cos(d.ang)*r, sn*Math.cos(d.tilt), -DRONE_LEAD + sn*Math.sin(d.tilt));
+}
 function spawnDrone(){
   if (drones.length >= DRONE_MAX) return;
   const m = new THREE.Mesh(droneGeo, new THREE.MeshBasicMaterial({ color:0x00e5ff, toneMapped:false }));
@@ -695,27 +699,33 @@ function spawnDrone(){
   const beam = new THREE.Line(bg, new THREE.LineBasicMaterial({ color:0x00e5ff, transparent:true, opacity:.8, blending:THREE.AdditiveBlending, toneMapped:false }));
   beam.frustumCulled = false; beam.visible = false; scene.add(m); scene.add(beam);
   const d = { m, beam, ang:Math.random()*Math.PI*2, tilt:Math.random()*Math.PI, node:null, prog:0, velocity:new THREE.Vector3() };
-  _v.set(Math.cos(d.ang)*DRONE_R, 0, Math.sin(d.ang)*DRONE_R).applyQuaternion(ship.quaternion);
+  dronePatrolOffset(d, drones.length).applyQuaternion(ship.quaternion);
   d.m.position.copy(ship.position).add(_v);
   drones.push(d);
   log(`DRONE ${drones.length} DEPLOYED · SEQUENCING x${drones.length + 1}`);
 }
 function updateDrones(dt){
   const taken = new Set(drones.map(d => d.node && d.node.id));
+  const forward = _v2.set(0,0,-1).applyQuaternion(ship.quaternion);
   drones.forEach((d, i) => {
     d.ang += dt*(1.2 + (i%3)*.3);
-    const r = DRONE_R + (i%4)*1.5, c = Math.cos(d.ang)*r, sn = Math.sin(d.ang)*r;
-    const orbit = _v.set(c, sn*Math.cos(d.tilt), sn*Math.sin(d.tilt)).applyQuaternion(ship.quaternion).add(ship.position);
+    const orbit = dronePatrolOffset(d, i).applyQuaternion(ship.quaternion).add(ship.position);
     d.m.rotation.y += dt*3; d.m.rotation.x += dt*2;
     if (d.node && sequenced.has(d.node.id)){ taken.delete(d.node.id); d.node = null; d.prog = 0; }
     if (!d.node){
       let best = null, bd = 1e9;
-      forNear(d.m.position, DRONE_SCAN_R, (j, d2) => { const n = nodes[j]; if (d2 < bd && !sequenced.has(n.id) && !taken.has(n.id)){ bd = d2; best = n; } });
+      forNear(d.m.position, DRONE_SCAN_R, (j, d2) => {
+        const n = nodes[j];
+        if (d2 >= bd || sequenced.has(n.id) || taken.has(n.id)) return;
+        const toNode = _v.copy(n.position).sub(ship.position), shipDistance = toNode.length();
+        if (shipDistance > DRONE_SCAN_R || toNode.dot(forward) < shipDistance*.78) return;
+        bd = d2; best = n;
+      });
       if (best){ d.node = best; d.prog = 0; taken.add(best.id); }
     }
     const goal = d.node ? d.node.position : orbit;
     _v.copy(goal).sub(d.m.position);
-    const distance = _v.length(), speed = Math.min(d.node ? 24 : 9, distance*1.5);
+    const distance = _v.length(), speed = Math.min(d.node ? 36 : 9, distance*1.5);
     if (distance > .001) _v.multiplyScalar(speed/distance);
     d.velocity.lerp(_v, damp(d.node ? 2.4 : 1.2, dt));
     d.m.position.addScaledVector(d.velocity, dt);
