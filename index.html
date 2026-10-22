@@ -1126,10 +1126,11 @@ function drawMotif(t){
 function drawComms(){
   const p = screens.comms, { ctx, w, h } = p; bg(p); const top = header(p, 'COMMS', new Date().toTimeString().slice(0,8), '#8a7aa8');
   const now = performance.now(), lines = commsLog.slice(-6), lh = (h - top - 12)/6;
-  ctx.font = `24px ${FM}`; ctx.textAlign = 'left';
+  ctx.font = `32px ${FM}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   lines.forEach((l,i) => { const newest = i === lines.length-1, chars = newest ? Math.floor((now - l.at)/22) : l.msg.length;
     ctx.fillStyle = newest ? '#fff' : `rgba(233,220,255,${.35 + .5*i/lines.length})`;
-    ctx.fillText((newest ? '▸ ' : '  ') + l.msg.slice(0, chars) + (newest && chars < l.msg.length ? '█' : ''), 14, top + 22 + i*lh); });
+    ctx.fillText((newest ? '▸ ' : '  ') + l.msg.slice(0, chars) + (newest && chars < l.msg.length ? '█' : ''), 14, top + 6 + (i+.5)*lh, w-28); });
+  ctx.textBaseline = 'alphabetic';
   finish(p);
 }
 function drawMission(){
@@ -1139,9 +1140,10 @@ function drawMission(){
   ctx.textAlign = 'left'; ctx.font = `17px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('SCORE', 18, top + 20);
   ctx.font = `700 56px ${FD}`; ctx.fillStyle = '#fff'; ctx.shadowColor = '#ff2e88'; ctx.shadowBlur = 14; ctx.fillText(score.toLocaleString('en-US'), 18, top + 74); ctx.shadowBlur = 0;
   if (objective){ const s = SECT[objective.ci];
-    ctx.font = `22px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('OBJECTIVE', 300, top + 20);
-    ctx.font = `700 30px ${FD}`; ctx.fillStyle = s.css; ctx.fillText(`${objective.type === 'deploy' ? 'DEPLOY' : 'SEQUENCE'} ${objective.type === 'deploy' ? objective.need + ' WALKS' : objective.need} ${s.label}`, 300, top + 48);
-    for (let i=0;i<objective.need;i++){ ctx.fillStyle = i < objective.have ? s.css : 'rgba(255,255,255,.1)'; ctx.fillRect(300 + i*42, top + 60, 34, 12); } }
+    ctx.font = `24px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('OBJECTIVE', 300, top + 20);
+    ctx.font = `700 38px ${FD}`; ctx.fillStyle = s.css; ctx.fillText(`${objective.type === 'deploy' ? 'DEPLOY' : 'SEQUENCE'} ${objective.type === 'deploy' ? objective.need + ' WALKS' : objective.need}`, 300, top + 62, 402);
+    ctx.font = `700 32px ${FD}`; ctx.fillText(s.label, 300, top + 99);
+    for (let i=0;i<objective.need;i++){ ctx.fillStyle = i < objective.have ? s.css : 'rgba(255,255,255,.1)'; ctx.fillRect(300 + i*42, top + 114, 34, 12); } }
   ctx.font = `18px ${FM}`; ctx.fillStyle = '#8a7aa8';
   ctx.fillText(`SEQUENCED ${sequenced.size}   MAPPED ${mapped.size}   DATASPACE ${N.toLocaleString('en-US')} N · ${edgeCount.toLocaleString('en-US')} E`, 18, h - 22);
   finish(p);
