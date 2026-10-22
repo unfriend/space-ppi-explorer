@@ -1139,8 +1139,8 @@ function drawMission(){
   ctx.textAlign = 'left'; ctx.font = `17px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('SCORE', 18, top + 20);
   ctx.font = `700 56px ${FD}`; ctx.fillStyle = '#fff'; ctx.shadowColor = '#ff2e88'; ctx.shadowBlur = 14; ctx.fillText(score.toLocaleString('en-US'), 18, top + 74); ctx.shadowBlur = 0;
   if (objective){ const s = SECT[objective.ci];
-    ctx.font = `17px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('OBJECTIVE', 330, top + 20);
-    ctx.font = `700 22px ${FD}`; ctx.fillStyle = s.css; ctx.fillText(`${objective.type === 'deploy' ? 'DEPLOY' : 'SEQUENCE'} ${objective.type === 'deploy' ? objective.need + ' WALKS' : objective.need} ${s.label}`, 330, top + 48);
+    ctx.font = `20px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('OBJECTIVE', 330, top + 20);
+    ctx.font = `700 28px ${FD}`; ctx.fillStyle = s.css; ctx.fillText(`${objective.type === 'deploy' ? 'DEPLOY' : 'SEQUENCE'} ${objective.type === 'deploy' ? objective.need + ' WALKS' : objective.need} ${s.label}`, 330, top + 48);
     for (let i=0;i<objective.need;i++){ ctx.fillStyle = i < objective.have ? s.css : 'rgba(255,255,255,.1)'; ctx.fillRect(330 + i*42, top + 60, 34, 12); } }
   ctx.font = `18px ${FM}`; ctx.fillStyle = '#8a7aa8';
   ctx.fillText(`SEQUENCED ${sequenced.size}   MAPPED ${mapped.size}   DATASPACE ${N.toLocaleString('en-US')} N · ${edgeCount.toLocaleString('en-US')} E`, 18, h - 22);
