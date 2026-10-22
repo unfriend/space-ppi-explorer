@@ -70,7 +70,7 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
   <div class="card">
     <div class="kicker">LBI NETMED · DATASPACE RECON</div>
     <h1>INTERACTOME<span>FLIGHT DECK</span></h1>
-    <p class="lede">Fly a slow recon craft through a 16,000-protein interaction network. Drift close to a node to sequence it, fire tracers to launch random walks, and read the network from the cockpit screens.</p>
+    <p class="lede">Fly a slow recon craft through a 16,000-protein interaction network. Drift close to a node to sequence it, fire tracers to launch random walks, and complete sector-specific objectives from the cockpit.</p>
     <div class="sync"><span id="sync-lbl">SYNCING DATASPACE</span><div class="bar"><i id="sync-bar"></i></div></div>
     <div class="btns">
       <button class="go" id="btn-launch" type="button" disabled>LAUNCH</button>
@@ -681,9 +681,12 @@ function markSequenced(n, live){
   if (!live) return;
   SFX.bleep('done');
   let pts = 100 + n.degree*8; activity[n.ci] += 6;
-  if (objective && n.ci === objective.ci){ pts += 150; objective.have++;
-    if (objective.have >= objective.need){ score += 500; log(`OBJECTIVE COMPLETE +500 · ${SECT[objective.ci].label}`); spawnDrone(); newObjective(); } }
+  if (objective && objective.type !== 'deploy' && n.ci === objective.ci){ pts += 150; objective.have++;
+    if (objective.have >= objective.need) completeObjective(); }
   score += pts; log(`SEQUENCED ${n.name} · k=${n.degree} · +${pts}`);
+}
+function completeObjective(){
+  score += 500; log(`OBJECTIVE COMPLETE +500 · ${SECT[objective.ci].label}`); spawnDrone(); newObjective();
 }
 // ---------------------------------------------------------------- sequencing drones (one earned per completed objective)
 const drones = [], DRONE_R = 9, DRONE_LEAD = 32, DRONE_SCAN_R = 140, DRONE_MAX = 24;
@@ -740,8 +743,9 @@ function updateDrones(dt){
 }
 function newObjective(){
   const prev = objective ? objective.ci : -1; let ci; do { ci = Math.floor(Math.random()*SECT.length); } while (ci === prev);
-  const need = objective ? Math.min(6, objective.need + 1) : 3; objective = { ci, need, have:0 };
-  log(`OBJECTIVE · SEQUENCE ${need} ${SECT[ci].label}`);
+  const need = objective ? Math.min(6, objective.need + 1) : 3, type = Math.random() < .5 ? 'sequence' : 'deploy';
+  objective = { type, ci, need, have:0 };
+  log(`OBJECTIVE · ${type === 'deploy' ? 'DEPLOY WALKS' : 'SEQUENCE'} ${need} ${SECT[ci].label}`);
 }
 
 // ---------------------------------------------------------------- audio: Brian Eno meets cyberpunk
@@ -890,6 +894,10 @@ function startWalker(n){
   const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(160*3), 3)); tg.setDrawRange(0,0);
   const trail = new THREE.Line(tg, new THREE.LineBasicMaterial({ color:n.colorHex, transparent:true, blending:THREE.AdditiveBlending, toneMapped:false })); trail.frustumCulled = false; scene.add(trail);
   walkers.push({ mesh:m, trail, count:0, cur:n, next:pickN(n), prog:0, steps:20 + Math.floor(Math.random()*24) });
+  if (objective && objective.type === 'deploy' && n.ci === objective.ci){
+    objective.have++;
+    if (objective.have >= objective.need) completeObjective();
+  }
 }
 const pickN = n => n.neighbors.length ? n.neighbors[Math.floor(Math.random()*n.neighbors.length)] : null;
 function killWalker(i){ const w = walkers[i]; scene.remove(w.mesh); scene.remove(w.trail); w.trail.geometry.dispose(); w.mesh.geometry.dispose(); walkers.splice(i,1); }
@@ -1132,7 +1140,7 @@ function drawMission(){
   ctx.font = `700 56px ${FD}`; ctx.fillStyle = '#fff'; ctx.shadowColor = '#ff2e88'; ctx.shadowBlur = 14; ctx.fillText(score.toLocaleString('en-US'), 18, top + 74); ctx.shadowBlur = 0;
   if (objective){ const s = SECT[objective.ci];
     ctx.font = `17px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('OBJECTIVE', 330, top + 20);
-    ctx.font = `700 22px ${FD}`; ctx.fillStyle = s.css; ctx.fillText(`SEQUENCE ${objective.need} ${s.label}`, 330, top + 48);
+    ctx.font = `700 22px ${FD}`; ctx.fillStyle = s.css; ctx.fillText(`${objective.type === 'deploy' ? 'DEPLOY' : 'SEQUENCE'} ${objective.type === 'deploy' ? objective.need + ' WALKS' : objective.need} ${s.label}`, 330, top + 48);
     for (let i=0;i<objective.need;i++){ ctx.fillStyle = i < objective.have ? s.css : 'rgba(255,255,255,.1)'; ctx.fillRect(330 + i*42, top + 60, 34, 12); } }
   ctx.font = `18px ${FM}`; ctx.fillStyle = '#8a7aa8';
   ctx.fillText(`SEQUENCED ${sequenced.size}   MAPPED ${mapped.size}   DATASPACE ${N.toLocaleString('en-US')} N · ${edgeCount.toLocaleString('en-US')} E`, 18, h - 22);
