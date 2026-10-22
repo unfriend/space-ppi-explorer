@@ -417,7 +417,7 @@ function buildCockpit(){
   const trig = new THREE.Mesh(new THREE.SphereGeometry(.009, 10, 10), M.cyan); trig.position.set(0, .2, -.022); stickPivot.add(trig);
 
   // holo projector pedestal at the centre
-  holoRoot = new THREE.Group(); holoRoot.position.set(0, -.115, -.64); cockpitRoot.add(holoRoot);
+  holoRoot = new THREE.Group(); holoRoot.position.set(0, -.18, -.64); cockpitRoot.add(holoRoot);
   const ped = new THREE.Group(); ped.position.set(0, -.272, -.64); ck.add(ped);
   const col = new THREE.Mesh(new THREE.CylinderGeometry(.045, .07, .2, 24), M.hull); col.position.y = -.12; ped.add(col);
   const colLed = new THREE.Mesh(new THREE.TorusGeometry(.058, .003, 6, 48), M.violet); colLed.rotation.x = Math.PI/2; colLed.position.y = -.08; ped.add(colLed);
