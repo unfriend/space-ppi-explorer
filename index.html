@@ -745,8 +745,9 @@ function newObjective(){
 }
 
 // ---------------------------------------------------------------- audio: Brian Eno meets cyberpunk
+const _lp = new THREE.Vector3(), _lf = new THREE.Vector3(), _lu = new THREE.Vector3(), _lq = new THREE.Quaternion();
 const SFX = (() => {
-  let ac, master, sfxBus, fx, muted = false, droneGain, lastWalk = 0, started = false;
+  let ac, master, sfxBus, spatBus, echoIn, fx, muted = false, droneGain, lastWalk = 0, started = false;
   const rnd = (a,b) => a + Math.random()*(b-a), mtof = m => 440*Math.pow(2,(m-69)/12);
   function reverb(){
     const len = ac.sampleRate*4.5, buf = ac.createBuffer(2, len, ac.sampleRate);
@@ -759,6 +760,13 @@ const SFX = (() => {
     const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t+a+dec);
     if (detune) o.detune.value = detune; env(g, t, a, peak, dec); o.connect(g); g.connect(dest || sfxBus); o.start(t); o.stop(t+a+dec+.05); return o;
   }
+  // spatial voice: a PannerNode at a world position feeding the dry spatial bus; wet sends give walkers a long echo tail
+  function spatial(pos, dur, echoAmt){
+    const p = ac.createPanner(); p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = 10; p.rolloffFactor = 1.5; p.maxDistance = 4000;
+    if (p.positionX){ p.positionX.value = pos.x; p.positionY.value = pos.y; p.positionZ.value = pos.z; } else p.setPosition(pos.x, pos.y, pos.z);
+    p.connect(spatBus); const e = ac.createGain(); e.gain.value = echoAmt; p.connect(e); e.connect(echoIn);
+    setTimeout(() => { try { p.disconnect(); e.disconnect(); } catch(_){} }, (dur+.5)*1000); return p;
+  }
   function pad(m, t, dur){
     [-7, 0, 7].forEach(dt => {
       const o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain(), pan = ac.createStereoPanner();
@@ -769,15 +777,33 @@ const SFX = (() => {
   }
   // slow generative Eno-style phrases: long, overlapping, incommensurate loops over a Dm9-ish pentatonic
   const SCALE = [50, 57, 62, 64, 65, 69, 72, 74, 76, 81];
-  function bell(m, t){
-    const g = ac.createGain(), pan = ac.createStereoPanner(); pan.pan.value = rnd(-.9,.9); g.connect(pan); pan.connect(fx);
-    env(g, t, .01, .09, 3.5); tone('sine', mtof(m), mtof(m), t, .01, 3.5, 1, g); tone('sine', mtof(m)*2.756, mtof(m)*2.756, t, .01, 1.2, .25, g);
+  function wash(m, t){ // soft filtered-noise swell, like breath/wind, pitched
+    const n = ac.createBufferSource(); n.buffer = noiseBuf(6); const f = ac.createBiquadFilter(), g = ac.createGain(), pan = ac.createStereoPanner(), dur = rnd(5,9);
+    f.type = 'bandpass'; f.frequency.value = mtof(m); f.Q.value = rnd(8,20); pan.pan.value = rnd(-.9,.9);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(rnd(.25,.5), t+dur*.5); g.gain.linearRampToValueAtTime(0.0001, t+dur);
+    n.connect(f); f.connect(g); g.connect(pan); pan.connect(fx); pan.connect(droneGain); n.start(t); n.stop(t+dur+.1);
+  }
+  function swell(m, t){ // slow-attack detuned sine/triangle chord tone
+    const dur = rnd(6,11), pan = ac.createStereoPanner(), g = ac.createGain(), f = ac.createBiquadFilter(); pan.pan.value = rnd(-.9,.9);
+    f.type = 'lowpass'; f.frequency.value = rnd(500,1400); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(.05, t+dur*.55); g.gain.linearRampToValueAtTime(0.0001, t+dur);
+    [0, rnd(3,9), -rnd(3,9)].forEach(d => { const o = ac.createOscillator(); o.type = Math.random()<.5 ? 'sine' : 'triangle'; o.frequency.value = mtof(m); o.detune.value = d; o.connect(f); o.start(t); o.stop(t+dur+.1); });
+    f.connect(g); g.connect(pan); pan.connect(fx); pan.connect(droneGain);
+  }
+  function bell(m, t){ // soft, slowly-blooming glass tone (no hard attack)
+    const g = ac.createGain(), pan = ac.createStereoPanner(), lp = ac.createBiquadFilter(), dec = rnd(3,6); pan.pan.value = rnd(-.9,.9); lp.type = 'lowpass'; lp.frequency.value = rnd(1200,2800);
+    g.connect(lp); lp.connect(pan); pan.connect(fx); pan.connect(droneGain);
+    env(g, t, rnd(.25,1.2), .07, dec); tone('sine', mtof(m), mtof(m), t, .3, dec, 1, g, rnd(-5,5)); if (Math.random()<.5) tone('sine', mtof(m)*2.756, mtof(m)*2.756, t, .5, 1.6, .15, g);
+  }
+  function grain(m, t){ // cloud of tiny quiet sine grains
+    const pan = ac.createStereoPanner(); pan.pan.value = rnd(-1,1); pan.connect(fx); const k = 5 + Math.floor(Math.random()*6);
+    for (let i=0;i<k;i++){ const mm = m + [0,7,12,14][Math.floor(Math.random()*4)]; tone('sine', mtof(mm), mtof(mm), t+rnd(0,2.5), .15, rnd(.8,1.8), .025, pan); }
   }
   function scheduler(){
     if (!ac) return;
     const t = ac.currentTime + .1;
     if (!scheduler.pad || t > scheduler.pad){ const root = [38,34,43,36][(scheduler.i = ((scheduler.i||0)+1)%4)]; pad(root+12, t, 14); pad(root+19, t+2, 14); scheduler.pad = t + 11; }
-    if (Math.random() < .55) bell(SCALE[Math.floor(Math.random()*SCALE.length)] + (Math.random()<.3?12:0), t + rnd(0, 3));
+    const note = () => SCALE[Math.floor(Math.random()*SCALE.length)] + (Math.random()<.3?12:0), r = Math.random();
+    if (r < .3) bell(note(), t + rnd(0, 3)); else if (r < .5) wash(note(), t + rnd(0, 2)); else if (r < .7) swell(note(), t + rnd(0, 2)); else if (r < .85) grain(note(), t + rnd(0, 2));
     setTimeout(scheduler, 2600);
   }
   function start(){
@@ -792,6 +818,11 @@ const SFX = (() => {
     const sfxFilter = ac.createBiquadFilter(); sfxFilter.type = 'lowpass'; sfxFilter.frequency.value = 4200; sfxFilter.Q.value = .55;
     sfxBus.connect(sfxFilter); sfxFilter.connect(master);
     const send = ac.createGain(); send.gain.value = .35; sfxFilter.connect(send); send.connect(fx);
+    spatBus = ac.createGain(); spatBus.gain.value = 1; const spF = ac.createBiquadFilter(); spF.type = 'lowpass'; spF.frequency.value = 3500; spatBus.connect(spF); spF.connect(master); spF.connect(fx);
+    // ping-pong echo with darkening feedback for the walkers
+    echoIn = ac.createGain(); const dl = ac.createDelay(2), dr = ac.createDelay(2), fb = ac.createGain(), ef = ac.createBiquadFilter(), mg = ac.createChannelMerger(2), eo = ac.createGain();
+    dl.delayTime.value = .47; dr.delayTime.value = .71; fb.gain.value = .62; ef.type = 'lowpass'; ef.frequency.value = 2200; eo.gain.value = .9;
+    echoIn.connect(dl); dl.connect(ef); ef.connect(dr); dr.connect(fb); fb.connect(dl); dl.connect(mg, 0, 0); dr.connect(mg, 0, 1); mg.connect(eo); eo.connect(master); eo.connect(fx);
     droneGain = ac.createGain(); droneGain.gain.value = .8; droneGain.connect(master); droneGain.connect(fx);
     // background hum: detuned low saws through a slowly breathing lowpass + filtered air noise
     const hum = ac.createGain(); hum.gain.value = .07; const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 160; lp.Q.value = .8;
@@ -807,18 +838,21 @@ const SFX = (() => {
   return {
     start,
     toggle(){ muted = !muted; if (master) master.gain.setTargetAtTime(muted ? 0 : .8, ac.currentTime, .05); return muted; },
-    fire(){ if (!ok()) return; const t = ac.currentTime;
-      tone('sawtooth', 1800, 110, t, .002, .22, .22); tone('square', 900, 60, t, .002, .16, .1, null, 12);
+    listen(cam){ if (!ok()) return; const L = ac.listener, p = cam.getWorldPosition(_lp), q = cam.getWorldQuaternion(_lq), fw = _lf.set(0,0,-1).applyQuaternion(q), up = _lu.set(0,1,0).applyQuaternion(q);
+      if (L.positionX){ const t = ac.currentTime; L.positionX.setValueAtTime(p.x,t); L.positionY.setValueAtTime(p.y,t); L.positionZ.setValueAtTime(p.z,t); L.forwardX.setValueAtTime(fw.x,t); L.forwardY.setValueAtTime(fw.y,t); L.forwardZ.setValueAtTime(fw.z,t); L.upX.setValueAtTime(up.x,t); L.upY.setValueAtTime(up.y,t); L.upZ.setValueAtTime(up.z,t); }
+      else { L.setPosition(p.x,p.y,p.z); L.setOrientation(fw.x,fw.y,fw.z,up.x,up.y,up.z); } },
+    fire(pos){ if (!ok()) return; const t = ac.currentTime, d = pos ? spatial(pos, .5, .15) : null;
+      tone('sawtooth', 1800, 110, t, .002, .22, .22, d); tone('square', 900, 60, t, .002, .16, .1, d, 12);
       const n = ac.createBufferSource(); n.buffer = noiseBuf(.3); const f = ac.createBiquadFilter(), g = ac.createGain(); f.type = 'highpass'; f.frequency.setValueAtTime(6000, t); f.frequency.exponentialRampToValueAtTime(500, t+.15);
-      env(g, t, .001, .12, .14); n.connect(f); f.connect(g); g.connect(sfxBus); n.start(t); n.stop(t+.3); },
-    hit(){ if (!ok()) return; const t = ac.currentTime;
-      tone('sine', 220, 35, t, .003, .5, .5); const n = ac.createBufferSource(); n.buffer = noiseBuf(.6); const f = ac.createBiquadFilter(), g = ac.createGain();
-      f.type = 'bandpass'; f.frequency.setValueAtTime(3000, t); f.frequency.exponentialRampToValueAtTime(200, t+.5); env(g, t, .002, .3, .45); n.connect(f); f.connect(g); g.connect(sfxBus); n.start(t); n.stop(t+.6);
-      [0,4,7,12].forEach((s,i) => tone('triangle', mtof(74+s), mtof(74+s), t+.04+i*.05, .005, .8, .09)); },
-    node(newNode, step){ if (!ok()) return; const now = ac.currentTime; if (now - lastWalk < .04) return; lastWalk = now;
-      const m = SCALE[(step*3 + Math.floor(rnd(0,3))) % SCALE.length] + 12 + (newNode ? 12 : 0);
-      tone('sine', mtof(m), mtof(m), now, .004, newNode ? 1.4 : .45, newNode ? .16 : .07, null, rnd(-6,6));
-      if (newNode){ tone('triangle', mtof(m+7), mtof(m+7), now+.07, .004, 1.0, .07); tone('sine', mtof(m-12), mtof(m-12)*1.5, now, .004, .5, .08); } },
+      env(g, t, .001, .12, .14); n.connect(f); f.connect(g); g.connect(d || sfxBus); n.start(t); n.stop(t+.3); },
+    hit(pos){ if (!ok()) return; const t = ac.currentTime, d = pos ? spatial(pos, 1.5, .4) : null;
+      tone('sine', 220, 35, t, .003, .5, .5, d); const n = ac.createBufferSource(); n.buffer = noiseBuf(.6); const f = ac.createBiquadFilter(), g = ac.createGain();
+      f.type = 'bandpass'; f.frequency.setValueAtTime(3000, t); f.frequency.exponentialRampToValueAtTime(200, t+.5); env(g, t, .002, .3, .45); n.connect(f); f.connect(g); g.connect(d || sfxBus); n.start(t); n.stop(t+.6);
+      [0,4,7,12].forEach((s,i) => tone('triangle', mtof(74+s), mtof(74+s), t+.04+i*.05, .005, .8, .09, d)); },
+    node(newNode, step, pos){ if (!ok()) return; const now = ac.currentTime; if (now - lastWalk < .04) return; lastWalk = now;
+      const m = SCALE[(step*3 + Math.floor(rnd(0,3))) % SCALE.length] + 12 + (newNode ? 12 : 0), dec = newNode ? 2.2 : .9, d = pos ? spatial(pos, dec+.3, newNode ? .9 : .6) : null;
+      tone('sine', mtof(m), mtof(m), now, .03, dec, newNode ? .16 : .08, d, rnd(-6,6));
+      if (newNode){ tone('triangle', mtof(m+7), mtof(m+7), now+.07, .03, 1.4, .06, d); tone('sine', mtof(m-12), mtof(m-12)*1.5, now, .03, .8, .08, d); } },
     bleep(kind){ if (!ok()) return; const t = ac.currentTime;
       const seq = kind === 'done' ? [880, 1320, 1760, 2637] : kind === 'lock' ? [1568, 1568] : [1760, 1175];
       seq.forEach((f,i) => tone('square', f, f, t+i*.07, .002, .05, .035)); },
@@ -839,7 +873,7 @@ function fire(){
   p.add(new THREE.Mesh(tracerGlow, new THREE.MeshBasicMaterial({ color:0x00e5ff, transparent:true, opacity:.45, blending:THREE.AdditiveBlending })));
   gunSide *= -1; p.position.copy(ship.localToWorld(_v.set(gunSide*1.6, -1.2, -3)));
   p.quaternion.copy(ship.quaternion); p.userData.vel = new THREE.Vector3(0,0,-1).applyQuaternion(ship.quaternion).multiplyScalar(240);
-  p.userData.life = 2.4; scene.add(p); projectiles.push(p); SFX.fire();
+  p.userData.life = 2.4; scene.add(p); projectiles.push(p); SFX.fire(p.position);
 }
 function updateProjectiles(dt){
   for (let i=projectiles.length-1;i>=0;i--){
@@ -847,7 +881,7 @@ function updateProjectiles(dt){
     let hit = -1; forNear(p.position, 5, j => { if (hit < 0) hit = j; });
     if (hit >= 0 || p.userData.life <= 0){
       scene.remove(p); p.children[0].material.dispose(); p.material.dispose(); projectiles.splice(i,1);
-      if (hit >= 0){ const n = nodes[hit]; startWalker(n); SFX.hit(); score += 10; log(`TRACER HIT ${n.name} · WALK DEPLOYED`); }
+      if (hit >= 0){ const n = nodes[hit]; startWalker(n); SFX.hit(n.position); score += 10; log(`TRACER HIT ${n.name} · WALK DEPLOYED`); }
     }
   }
 }
@@ -865,7 +899,7 @@ function updateWalkers(dt){
     w.prog += dt*1.6;
     if (w.prog >= 1){ w.prog = 0; w.cur = w.next; w.steps--;
       const fresh = !mapped.has(w.cur.id); if (fresh){ mapped.add(w.cur.id); score += 3; }
-      SFX.node(fresh, w.steps);
+      SFX.node(fresh, w.steps, w.cur.position);
       activity[w.cur.ci] += 1;
       if (w.steps <= 0){ killWalker(i); continue; } w.next = pickN(w.cur); continue; }
     w.mesh.position.copy(w.cur.position).lerp(w.next.position, w.prog);
@@ -1336,6 +1370,7 @@ function loop(){
   checkProximity(dt);
   updateProjectiles(dt);
   updateWalkers(dt);
+  SFX.listen(camera);
   updateHolograms(dt);
   updateDrones(dt);
   for (let i=0;i<activity.length;i++) activity[i] *= Math.pow(.6, dt);
