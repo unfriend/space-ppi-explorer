@@ -182,6 +182,7 @@ const gauss = () => { let u = 0, v = 0; while (!u) u = srand(); while (!v) v = s
 const rgba = (hex,a) => `rgba(${hex>>16&255},${hex>>8&255},${hex&255},${a})`;
 
 const nodes = [];
+let connectedNodes = [];
 const POS = new Float32Array(N*3);      // flat positions: what every hot loop reads
 const seqMark = new Uint8Array(N);      // mirror of the `sequenced` set for typed-array loops
 let edgeCount = 0, bridgeCount = 0, maxDeg = 0, meanK = 0;
@@ -874,6 +875,9 @@ function completeObjective(){
 }
 // ---------------------------------------------------------------- sequencing drones (one earned per completed objective)
 const drones = [], DRONE_R = 9, DRONE_LEAD = 32, DRONE_MAX = 24;
+const DRONE_WALK_MIN = 7, DRONE_WALK_MAX = 16;
+const nextDroneWalk = () => DRONE_WALK_MIN + Math.random()*(DRONE_WALK_MAX-DRONE_WALK_MIN);
+const randomConnectedNode = () => connectedNodes[Math.floor(Math.random()*connectedNodes.length)] || null;
 const droneGeo = new THREE.OctahedronGeometry(.7, 0);
 const droneMat = new THREE.MeshPhysicalMaterial({ color:0x49dfff, metalness:.45, roughness:.16, clearcoat:1, clearcoatRoughness:.12, transparent:true, opacity:.62, depthWrite:false, toneMapped:false });
 const droneInnerMat = new THREE.MeshBasicMaterial({ color:0x00e5ff, transparent:true, opacity:.28, blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false });
@@ -905,7 +909,7 @@ function spawnDrone(){
   const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3).setUsage(THREE.DynamicDrawUsage));
   const beam = new THREE.Line(bg, beamMat);
   beam.frustumCulled = false; beam.visible = false; scene.add(m); scene.add(beam);
-  const d = { m, beam, ang:Math.random()*Math.PI*2, tilt:Math.random()*Math.PI, node:null, prog:0, velocity:new THREE.Vector3() };
+  const d = { m, beam, ang:Math.random()*Math.PI*2, tilt:Math.random()*Math.PI, node:null, prog:0, walkTimer:nextDroneWalk(), velocity:new THREE.Vector3() };
   dronePatrolOffset(d, drones.length).applyQuaternion(ship.quaternion);
   d.m.position.copy(ship.position).add(_v);
   drones.push(d);
@@ -915,6 +919,12 @@ function updateDrones(dt){
   for (let i=0;i<drones.length;i++){
     const d = drones[i];
     d.ang += dt*(1.2 + (i%3)*.3);
+    d.walkTimer -= dt;
+    if (d.walkTimer <= 0){
+      const n = d.node || randomConnectedNode();
+      if (n) startWalker(n);
+      d.walkTimer = nextDroneWalk();
+    }
     const orbit = dronePatrolOffset(d, i).applyQuaternion(ship.quaternion).add(ship.position);
     d.m.rotation.y += dt*3; d.m.rotation.x += dt*2;
     if (d.node && seqMark[d.node.id]){ takenBy[d.node.id] = 0; d.node = null; d.prog = 0; }
@@ -1520,6 +1530,7 @@ function start(data){
   makeRenderer();
   buildScenery();
   generateNetwork();
+  connectedNodes = nodes.filter(n => n.neighbors.length);
   buildHist();
   ship = new THREE.Object3D(); ship.position.set(0, 40, 520); scene.add(ship);
   rig = new THREE.Group(); ship.add(rig); rig.add(camera);
