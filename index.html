@@ -1029,7 +1029,7 @@ const SFX = (() => {
     echoIn = ac.createGain(); const dl = ac.createDelay(2), dr = ac.createDelay(2), fb = ac.createGain(), ef = ac.createBiquadFilter(), mg = ac.createChannelMerger(2), eo = ac.createGain();
     dl.delayTime.value = .47; dr.delayTime.value = .71; fb.gain.value = .62; ef.type = 'lowpass'; ef.frequency.value = 2200; eo.gain.value = .9;
     echoIn.connect(dl); dl.connect(ef); ef.connect(dr); dr.connect(fb); fb.connect(dl); dl.connect(mg, 0, 0); dr.connect(mg, 0, 1); mg.connect(eo); eo.connect(master); eo.connect(fx);
-    sequenceBus = ac.createGain(); sequenceBus.gain.value = .75; sequenceBus.connect(sfxBus);
+    sequenceBus = ac.createGain(); sequenceBus.gain.value = .25; sequenceBus.connect(sfxBus);
     const sequenceEcho = ac.createGain(); sequenceEcho.gain.value = .9; sequenceBus.connect(sequenceEcho); sequenceEcho.connect(echoIn);
     droneGain = ac.createGain(); droneGain.gain.value = .8; droneGain.connect(master); droneGain.connect(fx);
     // background hum: detuned low saws through a slowly breathing lowpass + filtered air noise
