@@ -51,7 +51,6 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 #help b{color:var(--cyan);font-weight:400}
 #help.off{opacity:0}
 #steer{position:fixed;left:0;top:0;z-index:12;width:12px;height:12px;margin:-6px 0 0 -6px;border:1px solid var(--pink);border-radius:50%;pointer-events:none;box-shadow:0 0 10px var(--pink)}
-#hold{position:fixed;z-index:12;left:50%;top:14px;transform:translateX(-50%);font-size:10px;letter-spacing:.3em;color:var(--sun);pointer-events:none;opacity:0;transition:opacity .2s;white-space:nowrap}
 .touch{display:none}
 @media (pointer:coarse){
   .touch{display:flex;position:fixed;z-index:16;gap:10px;right:max(16px,env(safe-area-inset-right,0px));bottom:max(80px,calc(env(safe-area-inset-bottom,0px) + 80px))}
@@ -64,7 +63,6 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 <div id="stage"></div>
 <div id="grain"></div>
 <div id="steer" hidden></div>
-<div id="hold">STEERING HELD · POINTER OVER DASHBOARD</div>
 
 <div id="splash">
   <div class="card">
@@ -375,7 +373,8 @@ function buildCockpit(){
   ck.add(new THREE.Mesh(band(-DASH.a, DASH.a, DASH.r0, DASH.y0, DASH.r1, DASH.y1), dbl(M.hull)));
   ck.add(new THREE.Mesh(band(-DASH.a, DASH.a, DASH.r1, DASH.y1, .96, -.2), dbl(M.trim)));
   ck.add(new THREE.Mesh(band(-DASH.a, DASH.a, .96, -.2, 1.0, -.27), dbl(M.hull)));
-  ck.add(new THREE.Mesh(band(-DASH.a, DASH.a, DASH.r0, DASH.y0, .5, -.9), dbl(M.dark)));
+  const floorGlass = dbl(M.dark); floorGlass.transparent = true; floorGlass.opacity = .12; floorGlass.depthWrite = false;
+  ck.add(new THREE.Mesh(band(-DASH.a, DASH.a, DASH.r0, DASH.y0, .5, -.9), floorGlass));
   const pipe = (curve, rad, mat) => ck.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 96, rad, 6, false), mat));
   pipe(arc(DASH.r1+.004, DASH.y1+.006, -DASH.a, DASH.a), .0036, M.cyan);
   pipe(arc(.955, -.196, -DASH.a, DASH.a), .003, M.pink);
@@ -417,15 +416,15 @@ function buildCockpit(){
   const trig = new THREE.Mesh(new THREE.SphereGeometry(.009, 10, 10), M.cyan); trig.position.set(0, .2, -.022); stickPivot.add(trig);
 
   // holo projector pedestal at the centre
-  holoRoot = new THREE.Group(); holoRoot.position.set(0, -.115, -.64); cockpitRoot.add(holoRoot);
+  holoRoot = new THREE.Group(); holoRoot.position.set(0, -.18, -.64); cockpitRoot.add(holoRoot);
   const ped = new THREE.Group(); ped.position.set(0, -.272, -.64); ck.add(ped);
   const col = new THREE.Mesh(new THREE.CylinderGeometry(.045, .07, .2, 24), M.hull); col.position.y = -.12; ped.add(col);
   const colLed = new THREE.Mesh(new THREE.TorusGeometry(.058, .003, 6, 48), M.violet); colLed.rotation.x = Math.PI/2; colLed.position.y = -.08; ped.add(colLed);
   ped.add(new THREE.Mesh(new THREE.CylinderGeometry(.085, .11, .06, 40), M.trim));
   const ring1 = new THREE.Mesh(new THREE.TorusGeometry(.078, .004, 8, 64), M.cyan); ring1.rotation.x = Math.PI/2; ring1.position.y = .032; ped.add(ring1);
   const ring2 = new THREE.Mesh(new THREE.TorusGeometry(.1, .0025, 8, 64), M.pink); ring2.rotation.x = Math.PI/2; ring2.position.y = -.01; ped.add(ring2);
-  const lens = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, .008, 40), new THREE.MeshBasicMaterial({ color:0x66f3ff, toneMapped:false })); lens.position.y = .034; ped.add(lens);
-  const cone = new THREE.Mesh(new THREE.CylinderGeometry(.13, .055, .16, 40, 1, true), new THREE.MeshBasicMaterial({ color:0x00e5ff, transparent:true, opacity:.07, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide }));
+  const lens = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, .008, 40), new THREE.MeshBasicMaterial({ color:0x1d7a88, toneMapped:false })); lens.position.y = .034; ped.add(lens);
+  const cone = new THREE.Mesh(new THREE.CylinderGeometry(.13, .055, .16, 40, 1, true), new THREE.MeshBasicMaterial({ color:0x00e5ff, transparent:true, opacity:.025, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide }));
   cone.position.y = .12; ped.add(cone);
 
   mountScreen('deg',  -1.02, .52, .23, .165, false);
@@ -449,7 +448,7 @@ function buildCockpit(){
   reticle.children.forEach(c => c.renderOrder = 50);
 
   const l1 = new THREE.PointLight(0xff2e88, .9, 2.4); l1.position.set(0, .45, -.4); cockpitRoot.add(l1);
-  const l2 = new THREE.PointLight(0x00e5ff, .9, 1.6); l2.position.set(0, -.1, -.6); cockpitRoot.add(l2);
+  const l2 = new THREE.PointLight(0x00e5ff, .3, 1.6); l2.position.set(0, -.1, -.6); cockpitRoot.add(l2);
   const l3 = new THREE.PointLight(0xa66bff, .6, 2); l3.position.set(0, -.2, .3); cockpitRoot.add(l3);
 }
 
@@ -525,7 +524,6 @@ function log(msg){ SFX.chatter(); commsLog.push({ msg, at:performance.now() }); 
 // ---------------------------------------------------------------- flight
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
 const dzone = v => { const a = Math.abs(v); return a < .07 ? 0 : Math.sign(v)*Math.pow((a-.07)/.93, 1.4); };
-const steerZoneBottom = () => VH*.6;
 
 function updateFlight(dt){
   const now = performance.now();
@@ -552,13 +550,10 @@ function updateFlight(dt){
       targetSpeed = 1.2; ship.rotateY(.035*dt); bank = lerp(bank, 0, damp(1, dt));
       if (now > apTimer){ apState = 'cruising'; apTarget = null; apTimer = now + 10000 + Math.random()*8000; }
     }
-    $('hold').style.opacity = 0;
   } else {
     if (inXR){ inYaw = yawPitch.x; inPitch = yawPitch.y; }
     else if (ptr.mouse || ptr.touchThrust){
-      const over = ptr.y > steerZoneBottom();
-      $('hold').style.opacity = over && ptr.mouse ? 1 : 0;
-      if (!over){ inYaw = dzone(clamp((ptr.x - VW/2)/(VW*.42), -1, 1)); inPitch = dzone(clamp((VH*.36 - ptr.y)/(VH*.34), -1, 1)); }
+      inYaw = dzone(clamp((ptr.x - VW/2)/(VW*.42), -1, 1)); inPitch = dzone(clamp((VH*.36 - ptr.y)/(VH*.64), -1, 1));
     }
     inYaw = clamp(inYaw + Number(keys.d) - Number(keys.a), -1, 1);
     inPitch = clamp(inPitch + Number(keys.e) - Number(keys.q), -1, 1);
@@ -583,14 +578,14 @@ function updateFlight(dt){
     rig.rotation.z = reduceMotion ? 0 : bank;
     const lx = ptr.mouse ? clamp((ptr.x - VW/2)/(VW/2), -1, 1) : 0, ly = ptr.mouse ? clamp((ptr.y - VH/2)/(VH/2), -1, 1) : 0;
     camera.rotation.y = lerp(camera.rotation.y, -lx*.16, damp(3, dt));
-    camera.rotation.x = lerp(camera.rotation.x, -.15 - ly*.06, damp(3, dt));
+    camera.rotation.x = lerp(camera.rotation.x, -.15 - (ly > 0 ? ly*.8 : ly*.06), damp(3, dt));
     camera.position.x = lerp(camera.position.x, lx*.04, damp(3, dt));
   }
   throttleLever.rotation.x = lerp(throttleLever.rotation.x, -clamp(speed/BOOST, -.2, 1)*.9 + .3, damp(4, dt));
   stickPivot.rotation.z = lerp(stickPivot.rotation.z, turnVel.x*.6, damp(5, dt));
   stickPivot.rotation.x = lerp(stickPivot.rotation.x, -turnVel.y*.6, damp(5, dt));
 
-  const st = $('steer'), show = !inXR && launched && !autopilot && ptr.mouse && ptr.y < steerZoneBottom();
+  const st = $('steer'), show = !inXR && launched && !autopilot && ptr.mouse;
   st.hidden = !show; if (show) st.style.transform = `translate(${ptr.x}px,${ptr.y}px)`;
 }
 
@@ -627,6 +622,8 @@ function poke(){
 // ---------------------------------------------------------------- proximity, scanning, protein holograms
 const sphereGeo = new THREE.SphereGeometry(1, 10, 10), bondGeo = new THREE.CylinderGeometry(1, 1, 1, 6);
 const HOLO_RANGE = 260, HOLO_COUNT = 60;
+const HOLO_SHIP_RADIUS = 9, HOLO_RESTITUTION = .7;
+const holoShipVelocity = new THREE.Vector3(), holoNormal = new THREE.Vector3(), holoRelativeVelocity = new THREE.Vector3();
 function checkProximity(dt){
   const sp = ship.position, inRange = [];
   let closest = null, cd = 1e9;
@@ -638,7 +635,7 @@ function checkProximity(dt){
   const ids = new Set(near.map(n => n.id));
   let spawned = 0;
   near.forEach(n => {
-    if (!activeHolos.has(n.id)){ if (spawned++ >= 8) return; const h = makeHologram(n.colorHex); h.group.position.copy(n.position); scene.add(h.group); activeHolos.set(n.id, h); }
+    if (!activeHolos.has(n.id)){ if (spawned++ >= 8) return; const h = makeHologram(n.colorHex); h.group.position.copy(n.position); h.velocity = new THREE.Vector3(); scene.add(h.group); activeHolos.set(n.id, h); }
     else activeHolos.get(n.id).target = 1;
   });
   activeHolos.forEach((h,id) => { if (!ids.has(id)) h.target = 0; });
@@ -652,8 +649,8 @@ function checkProximity(dt){
 function makeHologram(colorHex){
   const group = new THREE.Group(), mats = [], base = new THREE.Color(colorHex), hsl = {}; base.getHSL(hsl);
   for (let k=0;k<5;k++){ const c = new THREE.Color().setHSL((hsl.h + Math.random()*.16 - .08 + 1)%1, clamp(hsl.s + Math.random()*.3 - .15, .3, 1), clamp(hsl.l + Math.random()*.4 - .2, .25, .75));
-    const m = new THREE.MeshStandardMaterial({ color:c, emissive:c, emissiveIntensity:1.1 + Math.random()*.6, transparent:true, opacity:0, roughness:.15, metalness:.7 }); m.baseOpacity = .85; mats.push(m); }
-  const bm = new THREE.MeshBasicMaterial({ color:colorHex, transparent:true, opacity:0, blending:THREE.AdditiveBlending }); bm.baseOpacity = .7; mats.push(bm);
+    const m = new THREE.MeshStandardMaterial({ color:c, emissive:c, emissiveIntensity:.55 + Math.random()*.35, transparent:true, opacity:0, roughness:.15, metalness:.7 }); m.baseOpacity = .65; mats.push(m); }
+  const bm = new THREE.MeshBasicMaterial({ color:colorHex, transparent:true, opacity:0, blending:THREE.AdditiveBlending }); bm.baseOpacity = .45; mats.push(bm);
   const n = 10 + Math.floor(Math.random()*30); const cur = new THREE.Vector3(), pts = [];
   for (let i=0;i<n;i++){ pts.push(cur.clone()); const a = new THREE.Mesh(sphereGeo, mats[Math.floor(Math.random()*5)]); a.scale.setScalar(.15 + Math.random()*.5); a.position.copy(cur); group.add(a);
     const d = new THREE.Vector3(Math.random()-.5, Math.random()-.5, Math.random()-.5).normalize().multiplyScalar(.5 + Math.random()*1.6); d.sub(cur.clone().multiplyScalar(.15)); cur.add(d); }
@@ -664,10 +661,25 @@ function makeHologram(colorHex){
 }
 function updateHolograms(dt){
   const ca = nodesGeo.attributes.aColor; let dirty = false;
+  holoShipVelocity.set(0,0,-speed).applyQuaternion(ship.quaternion);
   activeHolos.forEach((h,id) => {
     h.op = h.op < h.target ? Math.min(h.target, h.op + dt*1.5) : Math.max(h.target, h.op - dt*1.5);
     h.mats.forEach(m => m.opacity = m.baseOpacity*h.op);
     h.group.rotation.y += .25*dt; h.group.rotation.x += .12*dt;
+    if (h.op > 0){
+      h.group.position.addScaledVector(h.velocity, dt);
+      h.velocity.multiplyScalar(Math.exp(-1.2*dt));
+      holoNormal.copy(h.group.position).sub(ship.position);
+      const distance = holoNormal.length(), radius = HOLO_SHIP_RADIUS + 3*h.group.scale.x;
+      if (distance < radius){
+        if (distance < .001) holoNormal.set(0,0,1);
+        else holoNormal.multiplyScalar(1/distance);
+        h.group.position.copy(ship.position).addScaledVector(holoNormal, radius);
+        holoRelativeVelocity.copy(h.velocity).sub(holoShipVelocity);
+        const inwardSpeed = holoRelativeVelocity.dot(holoNormal);
+        if (inwardSpeed < 0) h.velocity.addScaledVector(holoNormal, -(1 + HOLO_RESTITUTION)*inwardSpeed);
+      }
+    }
     const n = nodes[id], v = 1 - h.op*.85; ca.setXYZ(id, n.disp.r*v, n.disp.g*v, n.disp.b*v); dirty = true;
     if (h.target === 0 && h.op === 0){ scene.remove(h.group); h.mats.forEach(m => m.dispose()); activeHolos.delete(id); ca.setXYZ(id, n.disp.r, n.disp.g, n.disp.b); }
   });
@@ -1126,10 +1138,11 @@ function drawMotif(t){
 function drawComms(){
   const p = screens.comms, { ctx, w, h } = p; bg(p); const top = header(p, 'COMMS', new Date().toTimeString().slice(0,8), '#8a7aa8');
   const now = performance.now(), lines = commsLog.slice(-6), lh = (h - top - 12)/6;
-  ctx.font = `21px ${FM}`; ctx.textAlign = 'left';
+  ctx.font = `32px ${FM}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   lines.forEach((l,i) => { const newest = i === lines.length-1, chars = newest ? Math.floor((now - l.at)/22) : l.msg.length;
     ctx.fillStyle = newest ? '#fff' : `rgba(233,220,255,${.35 + .5*i/lines.length})`;
-    ctx.fillText((newest ? '▸ ' : '  ') + l.msg.slice(0, chars) + (newest && chars < l.msg.length ? '█' : ''), 14, top + 22 + i*lh); });
+    ctx.fillText((newest ? '▸ ' : '  ') + l.msg.slice(0, chars) + (newest && chars < l.msg.length ? '█' : ''), 14, top + 6 + (i+.5)*lh, w-28); });
+  ctx.textBaseline = 'alphabetic';
   finish(p);
 }
 function drawMission(){
@@ -1139,9 +1152,10 @@ function drawMission(){
   ctx.textAlign = 'left'; ctx.font = `17px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('SCORE', 18, top + 20);
   ctx.font = `700 56px ${FD}`; ctx.fillStyle = '#fff'; ctx.shadowColor = '#ff2e88'; ctx.shadowBlur = 14; ctx.fillText(score.toLocaleString('en-US'), 18, top + 74); ctx.shadowBlur = 0;
   if (objective){ const s = SECT[objective.ci];
-    ctx.font = `17px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('OBJECTIVE', 330, top + 20);
-    ctx.font = `700 22px ${FD}`; ctx.fillStyle = s.css; ctx.fillText(`${objective.type === 'deploy' ? 'DEPLOY' : 'SEQUENCE'} ${objective.type === 'deploy' ? objective.need + ' WALKS' : objective.need} ${s.label}`, 330, top + 48);
-    for (let i=0;i<objective.need;i++){ ctx.fillStyle = i < objective.have ? s.css : 'rgba(255,255,255,.1)'; ctx.fillRect(330 + i*42, top + 60, 34, 12); } }
+    ctx.font = `24px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('OBJECTIVE', 300, top + 20);
+    ctx.font = `700 38px ${FD}`; ctx.fillStyle = s.css; ctx.fillText(`${objective.type === 'deploy' ? 'DEPLOY' : 'SEQUENCE'} ${objective.type === 'deploy' ? objective.need + ' WALKS' : objective.need}`, 300, top + 62, 402);
+    ctx.font = `700 32px ${FD}`; ctx.fillText(s.label, 300, top + 99);
+    for (let i=0;i<objective.need;i++){ ctx.fillStyle = i < objective.have ? s.css : 'rgba(255,255,255,.1)'; ctx.fillRect(300 + i*42, top + 114, 34, 12); } }
   ctx.font = `18px ${FM}`; ctx.fillStyle = '#8a7aa8';
   ctx.fillText(`SEQUENCED ${sequenced.size}   MAPPED ${mapped.size}   DATASPACE ${N.toLocaleString('en-US')} N · ${edgeCount.toLocaleString('en-US')} E`, 18, h - 22);
   finish(p);
@@ -1223,7 +1237,7 @@ function setupHolo(){
   for (let s=0;s<E;s++){ rewire(s); age[s] = 1 + Math.random()*3; }
   const eg = new THREE.BufferGeometry(); eg.setAttribute('position', new THREE.BufferAttribute(epos,3)); eg.setAttribute('color', new THREE.BufferAttribute(ecol,3));
   const lines = new THREE.LineSegments(eg, new THREE.LineBasicMaterial({ vertexColors:true, transparent:true, opacity:.28, blending:THREE.AdditiveBlending, depthWrite:false, fog:false, toneMapped:false })); lines.frustumCulled = false; group.add(lines);
-  const base = new THREE.PolarGridHelper(1.15, 12, 4, 64, 0xff2e88, 0x2a0a50); base.position.y = -1; base.material.fog = false; group.add(base);
+  const base = new THREE.PolarGridHelper(1.15, 12, 4, 64, 0x701b42, 0x16082a); base.position.y = -1; base.material.fog = false; group.add(base);
   const shipM = new THREE.Mesh(new THREE.ConeGeometry(.05,.15,8).rotateX(-Math.PI/2), new THREE.MeshBasicMaterial({ color:0xffb347, transparent:true, toneMapped:false, fog:false })); group.add(shipM);
   const tgtM = new THREE.Mesh(new THREE.RingGeometry(.06,.085,24), new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, side:THREE.DoubleSide, fog:false })); group.add(tgtM);
   const lbl = mkPanel('holoLabel', 512, 64);
@@ -1337,7 +1351,7 @@ function bindInput(){
   addEventListener('pointerdown', e => {
     if (!launched || e.target.closest('button')) return;
     ptr.x = e.clientX; ptr.y = e.clientY; poke();
-    if (e.pointerType === 'mouse'){ if (e.clientY < steerZoneBottom()) fire(); } else ptr.touchThrust = true;
+    if (e.pointerType === 'mouse'){ fire(); } else ptr.touchThrust = true;
   });
   addEventListener('pointerup', e => { if (e.pointerType !== 'mouse'){ ptr.touchThrust = false; ptr.x = VW/2; ptr.y = VH*.36; } });
   addEventListener('pointercancel', () => { ptr.touchThrust = false; });
