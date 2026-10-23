@@ -419,7 +419,7 @@ function screenBody(group, w, h, round, p){
   }
 }
 function mountScreen(key, az, w, h, round){
-  const r = lerp(DASH.r0, DASH.r1, .5) + .004, y = lerp(DASH.y0, DASH.y1, .5);
+  const r = lerp(DASH.r0, DASH.r1, .5) - .026, y = lerp(DASH.y0, DASH.y1, .5);
   const g = new THREE.Group(); g.position.set(r*Math.sin(az), y, -r*Math.cos(az));
   g.rotation.order = 'YXZ'; g.rotation.y = -az; g.rotation.x = -TILT; cockpitRoot.add(g);
   screenBody(g, w, h, round, screens[key]);
