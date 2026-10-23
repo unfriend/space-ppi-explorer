@@ -569,7 +569,24 @@ function makeHologram(colorHex){
   const up = new THREE.Vector3(0,1,0);
   for (let i=0;i<pts.length-1;i++){ const b = new THREE.Mesh(bondGeo, bm), d = pts[i].distanceTo(pts[i+1]); b.scale.set(.07, d, .07); b.position.copy(pts[i]).lerp(pts[i+1], .5); b.quaternion.setFromUnitVectors(up, pts[i+1].clone().sub(pts[i]).normalize()); group.add(b); }
   group.scale.setScalar(.8 + Math.random()*.9);
-  return { group, mats, target:1, op:0 };
+  return { group, mats, target:1, op:0, off:new THREE.Vector3(), vel:new THREE.Vector3(), radius:group.scale.x*2.5 };
+}
+function bounceHoloOffShip(h, n, dt){
+  // spring back to the node, but get knocked away when the ship's shield touches the model
+  h.vel.addScaledVector(h.off, -4*dt).multiplyScalar(Math.max(0, 1 - 1.5*dt));
+  h.off.addScaledVector(h.vel, dt);
+  const R = SHIP_SHIELD_RADIUS + h.radius;
+  _v.copy(n.position).add(h.off).sub(ship.position);
+  const d = _v.length();
+  if (d < R){
+    if (d > 1e-4) _v.divideScalar(d); else _v.set(0,1,0);
+    h.off.addScaledVector(_v, R - d);
+    const vn = h.vel.dot(_v);
+    if (vn < 0) h.vel.addScaledVector(_v, -1.8*vn);
+    h.vel.addScaledVector(_v, 8);
+  }
+  h.off.clampLength(0, 40);
+  h.group.position.copy(n.position).add(h.off);
 }
 function updateHolograms(dt){
   const ca = nodesGeo.attributes.aColor; let dirty = false;
@@ -577,6 +594,7 @@ function updateHolograms(dt){
     h.op = h.op < h.target ? Math.min(h.target, h.op + dt*1.5) : Math.max(h.target, h.op - dt*1.5);
     h.mats.forEach(m => m.opacity = m.baseOpacity*h.op);
     h.group.rotation.y += .25*dt; h.group.rotation.x += .12*dt;
+    bounceHoloOffShip(h, nodes[id], dt);
     const n = nodes[id], v = 1 - h.op*.85; ca.setXYZ(id, n.disp.r*v, n.disp.g*v, n.disp.b*v); dirty = true;
     if (h.target === 0 && h.op === 0){ scene.remove(h.group); h.mats.forEach(m => m.dispose()); activeHolos.delete(id); ca.setXYZ(id, n.disp.r, n.disp.g, n.disp.b); }
   });
@@ -812,18 +830,14 @@ const pickN = n => n.neighbors.length ? n.neighbors[Math.floor(Math.random()*n.n
 function killWalker(i){ const w = walkers[i]; scene.remove(w.mesh); scene.remove(w.trail); w.trail.geometry.dispose(); w.mesh.geometry.dispose(); walkers.splice(i,1); }
 const SHIP_SHIELD_RADIUS = 10;
 function bounceWalkerOffShip(w){
-  const radius = SHIP_SHIELD_RADIUS + .45, start = w.cur.position, end = w.next.position;
-  const sx = start.x-ship.position.x, sy = start.y-ship.position.y, sz = start.z-ship.position.z;
-  const dx = end.x-start.x, dy = end.y-start.y, dz = end.z-start.z;
-  const a = dx*dx + dy*dy + dz*dz, b = 2*(sx*dx + sy*dy + sz*dz), c = sx*sx + sy*sy + sz*sz - radius*radius;
-  if (!a || c <= 0 || w.mesh.position.distanceToSquared(ship.position) >= radius*radius) return;
-  const discriminant = b*b - 4*a*c;
-  if (discriminant < 0) return;
-  const entry = (-b - Math.sqrt(discriminant))/(2*a);
-  if (entry < 0 || entry > w.prog) return;
-  const previous = w.cur;
-  w.cur = w.next; w.next = previous; w.prog = 1-entry;
-  w.mesh.position.copy(w.cur.position).lerp(w.next.position, w.prog);
+  const radius = SHIP_SHIELD_RADIUS + .45, m = w.mesh.position;
+  _v.copy(m).sub(ship.position); const d2 = _v.lengthSq();
+  if (d2 >= radius*radius) return;
+  // ship may overtake a walker, so test the current position rather than the segment
+  const out = _v.lengthSq() > 1e-6 ? _v.normalize() : _v.set(0,1,0);
+  _v2.copy(w.next.position).sub(w.cur.position);
+  if (_v2.dot(out) < 0){ const prev = w.cur; w.cur = w.next; w.next = prev; w.prog = 1-w.prog; }
+  m.copy(ship.position).addScaledVector(out, radius);
 }
 function updateWalkers(dt){
   for (let i=walkers.length-1;i>=0;i--){
