@@ -90,6 +90,62 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script>
+/* Hot update: poll for a new deploy, then reload in place carrying the flight state (score, drones, sequenced proteins, pose).
+   Only if the new build fails to come up does the player get a manual button. */
+(() => {
+  const KEY = 'ppi-hot', POLL_MS = 30000;
+  let baseline = null, busy = false, bootFailed = false;
+  const prev = (() => { try { return JSON.parse(sessionStorage.getItem(KEY)); } catch (e) { return null; } })();
+  const tries = prev ? (prev.tries | 0) : 0;
+  if (prev && prev.data && tries < 2) { window.__ppiHotData = prev.data; try { sessionStorage.setItem(KEY, JSON.stringify({ data: prev.data, tries: tries + 1 })); } catch (e) {} }
+  else if (prev) sessionStorage.removeItem(KEY);
+
+  const banner = msg => {
+    if (document.getElementById('hot-fail')) return;
+    const d = document.createElement('div'); d.id = 'hot-fail';
+    d.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99;padding:10px 14px;background:rgba(30,10,16,.94);border:1px solid #f36;color:#ffd0dc;font:12px monospace;letter-spacing:.08em;display:flex;gap:12px;align-items:center';
+    d.innerHTML = '<span></span><button type="button" style="font:inherit;color:#f6a;background:none;border:1px solid #f36;padding:3px 8px;cursor:pointer">RELOAD</button>';
+    d.firstChild.textContent = msg;
+    d.lastChild.onclick = () => location.reload();
+    document.body.appendChild(d);
+  };
+  const onFail = () => { bootFailed = true; if (document.body) banner('UPDATE FAILED'); else addEventListener('DOMContentLoaded', () => banner('UPDATE FAILED')); };
+  if (prev) {
+    addEventListener('error', onFail);
+    addEventListener('unhandledrejection', onFail);
+    setTimeout(() => { removeEventListener('error', onFail); removeEventListener('unhandledrejection', onFail);
+      if (!bootFailed) sessionStorage.removeItem(KEY); }, 10000);
+  }
+
+  if (location.protocol === 'file:') return;
+  const sig = async () => {
+    const r = await fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw 0;
+    const t = await r.text();
+    let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
+    return h + ':' + t.length;
+  };
+  const swap = () => {
+    let data = null;
+    try { data = window.__ppiSnapshot && window.__ppiSnapshot(); } catch (e) {}
+    try { if (data && data.launched) sessionStorage.setItem(KEY, JSON.stringify({ data, tries: 0 })); else sessionStorage.removeItem(KEY); } catch (e) {}
+    location.reload();
+  };
+  const check = async () => {
+    if (busy || bootFailed || document.hidden) return;
+    busy = true;
+    try {
+      const s = await sig();
+      if (baseline === null) baseline = s;
+      else if (s !== baseline && !(window.__ppiInXR && window.__ppiInXR())) swap();
+    } catch (e) {} finally { busy = false; }
+  };
+  check();
+  setInterval(check, POLL_MS);
+  document.addEventListener('visibilitychange', check);
+})();
+</script>
+<script>
 (() => {
 'use strict';
 /* Performance notes (what changed vs. the first build)
@@ -1482,7 +1538,9 @@ function start(data){
   if (data.pos) ship.position.fromArray(data.pos);
   if (data.quat) ship.quaternion.fromArray(data.quat);
   const hot = window.claude?.hot;
-  if (hot && typeof hot.snapshot === 'function') hot.snapshot(() => ({ score, sequenced:[...sequenced], objective, drones:drones.length, pos:ship.position.toArray(), quat:ship.quaternion.toArray(), launched }));
+  const snap = () => ({ score, sequenced:[...sequenced], objective, drones:drones.length, pos:ship.position.toArray(), quat:ship.quaternion.toArray(), launched });
+  window.__ppiSnapshot = snap; window.__ppiInXR = () => inXR;
+  if (hot && typeof hot.snapshot === 'function') hot.snapshot(snap);
   log(`LINK UP · ${N.toLocaleString('en-US')} PROTEINS · ${edgeCount.toLocaleString('en-US')} INTERACTIONS`);
   layout(); addEventListener('resize', layout);
   bindInput();
@@ -1592,7 +1650,7 @@ function loop(){
 }
 
 const hot = window.claude?.hot;
-if (hot && typeof hot.ready === 'function') hot.ready(start); else start(hot?.data ?? {});
+if (hot && typeof hot.ready === 'function') hot.ready(start); else start(hot?.data ?? window.__ppiHotData ?? {});
 })();
 </script>
 </body></html>
