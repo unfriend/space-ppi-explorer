@@ -638,17 +638,17 @@ const dzone = v => { const a = Math.abs(v); return a < .07 ? 0 : Math.sign(v)*Ma
 const pad = { yaw:0, pitch:0, thrust:false, boost:false, brake:false, prev:[] };
 function pollPad(){
   pad.yaw = pad.pitch = 0; pad.thrust = pad.boost = pad.brake = false;
-  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  const pads = navigator.getGamepads ? navigator.getGamepads() || [] : [];
   let g = null; for (const c of pads) if (c && c.connected){ g = c; break; }
   if (!g) return;
-  const b = i => g.buttons[i] ? g.buttons[i].value : 0, dz = v => Math.abs(v) < .15 ? 0 : v;
-  const hit = i => { const d = b(i) > .5, e = d && !pad.prev[i]; pad.prev[i] = d; return e; };
+  const b = i => g.buttons[i] || null, down = (i, threshold = .5) => { const button = b(i); return !!button && (button.pressed || button.value > threshold); }, dz = v => Math.abs(v) < .15 ? 0 : v;
+  const hit = i => { const d = down(i), e = d && !pad.prev[i]; pad.prev[i] = d; return e; };
   const ax = clamp(dz(g.axes[0]||0) + dz(g.axes[2]||0), -1, 1), ay = clamp(dz(g.axes[1]||0) + dz(g.axes[3]||0), -1, 1);
-  const edges = [0, 3, 9, 10].map(hit), any = ax || ay || g.buttons.some(x => x.pressed);
+  const edges = [0, 3, 9, 10].map(hit), any = ax || ay || g.buttons.some(x => x && (x.pressed || x.value > .15));
   if (!launched){ if ((edges[0] || edges[2]) && !$('btn-launch').disabled) launch(); return; }
-  if (any) poke();
+  if (any){ ptr.mouse = false; poke(); }
   pad.yaw = ax; pad.pitch = -ay;
-  pad.thrust = b(7) > .2 || b(5) > .5; pad.brake = b(6) > .2 || b(13) > .5; pad.boost = b(1) > .5 || b(4) > .5 || b(2) > .5;
+  pad.thrust = down(7, .2) || down(5); pad.brake = down(6, .2) || down(13); pad.boost = down(1) || down(4) || down(2);
   if (edges[0]) fire();
   if (edges[1]) $('help').classList.toggle('off');
 }
