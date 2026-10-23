@@ -79,7 +79,7 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
   </div>
 </div>
 
-<div id="help" class="off"><b>MOUSE</b> steer · <b>W/S</b> thrust · <b>A/D</b> yaw · <b>Q/E</b> pitch · <b>SHIFT</b> overdrive · <b>SPACE</b> tracer · <b>B</b> bloom · <b>M</b> mute · <b>H</b> hide<br>VR: right stick steer · left trigger thrust · grip overdrive · right trigger fire</div>
+<div id="help" class="off"><b>MOUSE</b> steer · <b>W/S</b> thrust · <b>A/D</b> yaw · <b>Q/E</b> pitch · <b>SHIFT</b> overdrive · <b>SPACE</b> tracer · <b>B</b> bloom · <b>M</b> mute · <b>H</b> hide<br>GAMEPAD: sticks steer · RT/RB thrust · LT reverse · B/X/LB overdrive · A tracer · Y help<br>VR: right stick steer · left trigger thrust · grip overdrive · right trigger fire</div>
 <div class="touch"><button class="b" id="t-boost" type="button">BOOST</button><button id="t-fire" type="button">FIRE</button></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -635,6 +635,24 @@ function markMapped(n){ if (mapped.has(n.id)) return false; mapped.add(n.id); ma
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _e = new THREE.Euler();
 const dzone = v => { const a = Math.abs(v); return a < .07 ? 0 : Math.sign(v)*Math.pow((a-.07)/.93, 1.4); };
 
+const pad = { yaw:0, pitch:0, thrust:false, boost:false, brake:false, prev:[] };
+function pollPad(){
+  pad.yaw = pad.pitch = 0; pad.thrust = pad.boost = pad.brake = false;
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  let g = null; for (const c of pads) if (c && c.connected){ g = c; break; }
+  if (!g) return;
+  const b = i => g.buttons[i] ? g.buttons[i].value : 0, dz = v => Math.abs(v) < .15 ? 0 : v;
+  const hit = i => { const d = b(i) > .5, e = d && !pad.prev[i]; pad.prev[i] = d; return e; };
+  const ax = clamp(dz(g.axes[0]||0) + dz(g.axes[2]||0), -1, 1), ay = clamp(dz(g.axes[1]||0) + dz(g.axes[3]||0), -1, 1);
+  const edges = [0, 3, 9, 10].map(hit), any = ax || ay || g.buttons.some(x => x.pressed);
+  if (!launched){ if ((edges[0] || edges[2]) && !$('btn-launch').disabled) launch(); return; }
+  if (any) poke();
+  pad.yaw = ax; pad.pitch = -ay;
+  pad.thrust = b(7) > .2 || b(5) > .5; pad.brake = b(6) > .2 || b(13) > .5; pad.boost = b(1) > .5 || b(4) > .5 || b(2) > .5;
+  if (edges[0]) fire();
+  if (edges[1]) $('help').classList.toggle('off');
+}
+
 function updateFlight(dt){
   const now = performance.now();
   if (launched && !autopilot && now - lastInput > 12000){
@@ -665,20 +683,20 @@ function updateFlight(dt){
     else if (ptr.touchThrust || ptr.mouse){
       inYaw = dzone(clamp((ptr.x - VW/2)/(VW*.42), -1, 1)); inPitch = dzone(clamp((VH*.36 - ptr.y)/(VH*.64), -1, 1));
     }
-    inYaw = clamp(inYaw + Number(keys.d) - Number(keys.a), -1, 1);
-    inPitch = clamp(inPitch + Number(keys.e) - Number(keys.q), -1, 1);
+    inYaw = clamp(inYaw + Number(keys.d) - Number(keys.a) + pad.yaw, -1, 1);
+    inPitch = clamp(inPitch + Number(keys.e) - Number(keys.q) + pad.pitch, -1, 1);
     if (keys.a || keys.d || keys.q || keys.e) lastInput = now;
     // inertia: turn rates ease toward the stick instead of snapping
     turnVel.x = lerp(turnVel.x, -inYaw*.55, damp(1.6, dt));
     turnVel.y = lerp(turnVel.y, inPitch*.42, damp(1.6, dt));
     ship.rotateY(turnVel.x*dt); ship.rotateX(turnVel.y*dt);
-    const thrust = keys.w || ptr.touchThrust || xrThrust;
-    const boosting = thrust && (keys.shift || xrBoost) && energy > 1;
-    targetSpeed = thrust ? (boosting ? BOOST : CRUISE) : (keys.s || xrBrake ? REVERSE : 0);
+    const thrust = keys.w || ptr.touchThrust || xrThrust || pad.thrust;
+    const boosting = thrust && (keys.shift || xrBoost || pad.boost) && energy > 1;
+    targetSpeed = thrust ? (boosting ? BOOST : CRUISE) : (keys.s || xrBrake || pad.brake ? REVERSE : 0);
     if (boosting) energy = Math.max(0, energy - 22*dt);
     bank = lerp(bank, clamp(turnVel.x*.45, -.22, .22), damp(1.5, dt));
   }
-  if (!((keys.shift || xrBoost) && (keys.w || ptr.touchThrust || xrThrust))) energy = Math.min(100, energy + 7*dt);
+  if (!((keys.shift || xrBoost || pad.boost) && (keys.w || ptr.touchThrust || xrThrust || pad.thrust))) energy = Math.min(100, energy + 7*dt);
   _v.set(1,0,0).applyQuaternion(ship.quaternion); ship.rotateZ(-_v.y*damp(.8, dt));   // gentle auto-level
   speed = lerp(speed, targetSpeed, damp(.7, dt));
   ship.translateZ(-speed*dt);
@@ -1620,6 +1638,7 @@ function loop(){
     if (f >= 1){ booted = true; $('btn-launch').disabled = false; } }
   else adapt(dt*1000);
   if (inXR) pollXR();
+  pollPad();
   updateFlight(dt);
   if (frame % 3 === 0) checkProximity();
   updateScan(dt);
