@@ -810,6 +810,21 @@ function startWalker(n){
 }
 const pickN = n => n.neighbors.length ? n.neighbors[Math.floor(Math.random()*n.neighbors.length)] : null;
 function killWalker(i){ const w = walkers[i]; scene.remove(w.mesh); scene.remove(w.trail); w.trail.geometry.dispose(); w.mesh.geometry.dispose(); walkers.splice(i,1); }
+const SHIP_SHIELD_RADIUS = 10;
+function bounceWalkerOffShip(w){
+  const radius = SHIP_SHIELD_RADIUS + .45, start = w.cur.position, end = w.next.position;
+  const sx = start.x-ship.position.x, sy = start.y-ship.position.y, sz = start.z-ship.position.z;
+  const dx = end.x-start.x, dy = end.y-start.y, dz = end.z-start.z;
+  const a = dx*dx + dy*dy + dz*dz, b = 2*(sx*dx + sy*dy + sz*dz), c = sx*sx + sy*sy + sz*sz - radius*radius;
+  if (!a || c <= 0 || w.mesh.position.distanceToSquared(ship.position) >= radius*radius) return;
+  const discriminant = b*b - 4*a*c;
+  if (discriminant < 0) return;
+  const entry = (-b - Math.sqrt(discriminant))/(2*a);
+  if (entry < 0 || entry > w.prog) return;
+  const previous = w.cur;
+  w.cur = w.next; w.next = previous; w.prog = 1-entry;
+  w.mesh.position.copy(w.cur.position).lerp(w.next.position, w.prog);
+}
 function updateWalkers(dt){
   for (let i=walkers.length-1;i>=0;i--){
     const w = walkers[i]; if (!w.next){ killWalker(i); continue; }
@@ -820,6 +835,7 @@ function updateWalkers(dt){
       activity[w.cur.ci] += 1;
       if (w.steps <= 0){ killWalker(i); continue; } w.next = pickN(w.cur); continue; }
     w.mesh.position.copy(w.cur.position).lerp(w.next.position, w.prog);
+    bounceWalkerOffShip(w);
     const a = w.trail.geometry.attributes.position, arr = a.array;
     if (w.count < 160) w.count++; else arr.copyWithin(0, 3);
     const o = (w.count-1)*3; arr[o] = w.mesh.position.x; arr[o+1] = w.mesh.position.y; arr[o+2] = w.mesh.position.z;
