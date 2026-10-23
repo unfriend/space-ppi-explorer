@@ -363,8 +363,37 @@ function roundRect(w, h, r){ const s = new THREE.Shape(), x = -w/2, y = -h/2;
 const DASH = { a:1.47, r0:.56, y0:-.5, r1:.72, y1:-.26 };
 const TILT = Math.atan2(DASH.r1-DASH.r0, DASH.y1-DASH.y0);
 
+function buildWindowFrame(){
+  const frame = new THREE.Group(); rig.add(frame);
+  const beam = (points, radius, material) => {
+    const curve = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(...p)));
+    frame.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 32, radius, 8, false), material));
+  };
+  const corners = [
+    [-1.48,-.82],[-1.48,.78],[-1.28,1],[1.28,1],
+    [1.48,.78],[1.48,-.82],[1.28,-1],[-1.28,-1]
+  ];
+  const ring = new THREE.CatmullRomCurve3(corners.map(([x,y]) => new THREE.Vector3(x,y,-2.05)), true);
+  frame.add(new THREE.Mesh(new THREE.TubeGeometry(ring, 96, .055, 8, true), M.hull));
+  const trimRing = new THREE.CatmullRomCurve3(corners.map(([x,y]) => new THREE.Vector3(x,y,-2.045)), true);
+  frame.add(new THREE.Mesh(new THREE.TubeGeometry(trimRing, 96, .009, 6, true), M.cyan));
+
+  [-.55,-1.25,-1.95].forEach((z,i) => {
+    const y = .03 - z*.08 + (i === 1 ? .1 : 0);
+    beam([[-1.42,y-.12,z],[-.85,y+.12,z],[0,y+.2,z],[.85,y+.12,z],[1.42,y-.12,z]], .042, M.trim);
+    beam([[-1.3,y-.075,z-.012],[0,y+.13,z-.012],[1.3,y-.075,z-.012]], .008, i === 1 ? M.pink : M.cyan);
+  });
+
+  [-1,1].forEach(side => {
+    beam([[side*1.42,-.78,-.58],[side*1.5,-.25,-1.05],[side*1.52,.48,-1.55],[side*1.48,.8,-2.05]], .05, M.hull);
+    beam([[side*1.39,-.7,-.57],[side*1.46,-.2,-1.05],[side*1.48,.5,-1.55]], .009, M.pink);
+    beam([[side*1.48,-.82,-2.05],[side*1.48,.78,-2.05]], .045, M.trim);
+  });
+}
+
 function buildCockpit(){
   cockpitMaterials();
+  buildWindowFrame();
   cockpitRoot = new THREE.Group(); cockpitRoot.position.y = -.22; rig.add(cockpitRoot);
   const ck = new THREE.Group(); cockpitRoot.add(ck);
   ck.add(new THREE.Mesh(band(-DASH.a, DASH.a, DASH.r0, DASH.y0, DASH.r1, DASH.y1), dbl(M.hull)));
