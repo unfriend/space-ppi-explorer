@@ -959,7 +959,7 @@ function newObjective(){
 // ---------------------------------------------------------------- audio: Brian Eno meets cyberpunk
 const _lp = new THREE.Vector3(), _lf = new THREE.Vector3(), _lu = new THREE.Vector3(), _lq = new THREE.Quaternion();
 const SFX = (() => {
-  let ac, master, sfxBus, spatBus, echoIn, fx, muted = false, droneGain, lastWalk = 0, started = false;
+  let ac, master, sfxBus, spatBus, echoIn, fx, sequenceBus, muted = false, droneGain, lastWalk = 0, started = false;
   const rnd = (a,b) => a + Math.random()*(b-a), mtof = m => 440*Math.pow(2,(m-69)/12);
   const noiseCache = new Map();
   function reverb(){
@@ -1036,6 +1036,8 @@ const SFX = (() => {
     echoIn = ac.createGain(); const dl = ac.createDelay(2), dr = ac.createDelay(2), fb = ac.createGain(), ef = ac.createBiquadFilter(), mg = ac.createChannelMerger(2), eo = ac.createGain();
     dl.delayTime.value = .47; dr.delayTime.value = .71; fb.gain.value = .62; ef.type = 'lowpass'; ef.frequency.value = 2200; eo.gain.value = .9;
     echoIn.connect(dl); dl.connect(ef); ef.connect(dr); dr.connect(fb); fb.connect(dl); dl.connect(mg, 0, 0); dr.connect(mg, 0, 1); mg.connect(eo); eo.connect(master); eo.connect(fx);
+    sequenceBus = ac.createGain(); sequenceBus.gain.value = .75; sequenceBus.connect(sfxBus);
+    const sequenceEcho = ac.createGain(); sequenceEcho.gain.value = .9; sequenceBus.connect(sequenceEcho); sequenceEcho.connect(echoIn);
     droneGain = ac.createGain(); droneGain.gain.value = .8; droneGain.connect(master); droneGain.connect(fx);
     // background hum: detuned low saws through a slowly breathing lowpass + filtered air noise
     const hum = ac.createGain(); hum.gain.value = .07; const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 160; lp.Q.value = .8;
@@ -1068,7 +1070,14 @@ const SFX = (() => {
       if (newNode){ tone('triangle', mtof(m+7), mtof(m+7), now+.07, .03, 1.4, .06, d); tone('sine', mtof(m-12), mtof(m-12)*1.5, now, .03, .8, .08, d); } },
     bleep(kind){ if (!ok()) return; const t = ac.currentTime;
       const seq = kind === 'done' ? [880, 1320, 1760, 2637] : kind === 'lock' ? [1568, 1568] : [1760, 1175];
-      seq.forEach((f,i) => tone('square', f, f, t+i*.07, .002, .05, .035)); },
+      const dest = kind === 'done' ? sequenceBus : sfxBus;
+      seq.forEach((f,i) => tone('square', f, f, t+i*.07, .002, .05, .035, dest));
+      if (kind === 'done'){
+        const n = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+        n.buffer = noiseBuf(.7); f.type = 'bandpass'; f.Q.value = .8;
+        f.frequency.setValueAtTime(3600, t); f.frequency.exponentialRampToValueAtTime(520, t+.38);
+        env(g, t, .008, .12, .42); n.connect(f); f.connect(g); g.connect(sequenceBus); n.start(t); n.stop(t+.7);
+      } },
     chatter(){ if (!ok()) return; const t = ac.currentTime, n = 2 + Math.floor(Math.random()*3);
       for (let i=0;i<n;i++) tone('square', 700 + Math.floor(rnd(0,8))*180, 700 + Math.floor(rnd(0,8))*180, t+i*.06, .002, .035, .02); },
     boost(on){ if (!ok()) return; const t = ac.currentTime;
