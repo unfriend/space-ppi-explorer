@@ -6,7 +6,7 @@
 </head><body>
 <style>
 /* Layout: one full-bleed WebGL scene. The cockpit, its screens and the holo-map are all 3D geometry, so the same view works in a VR headset.
-   HTML is used only for the launch splash, the help card and the desktop steering cursor. Single dark synthwave look by design. */
+   HTML is used for the launch splash, the help card and touch controls. Single dark synthwave look by design. */
 :root{
   --void:#07010f; --ink:#e9dcff; --dim:#8a7aa8; --pink:#ff2e88; --cyan:#00e5ff; --violet:#a66bff; --sun:#ffb347;
   --f-wide:"Syncopate","Chakra Petch",system-ui,sans-serif;
@@ -50,7 +50,6 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
   background:rgba(7,1,15,.6);border:1px solid rgba(166,107,255,.3);padding:8px 12px;line-height:1.7;pointer-events:none;transition:opacity .5s;max-width:calc(100vw - 32px)}
 #help b{color:var(--cyan);font-weight:400}
 #help.off{opacity:0}
-#steer{position:fixed;left:0;top:0;z-index:12;width:12px;height:12px;margin:-6px 0 0 -6px;border:1px solid var(--pink);border-radius:50%;pointer-events:none;box-shadow:0 0 10px var(--pink)}
 .touch{display:none}
 @media (pointer:coarse){
   .touch{display:flex;position:fixed;z-index:16;gap:10px;right:max(16px,env(safe-area-inset-right,0px));bottom:max(80px,calc(env(safe-area-inset-bottom,0px) + 80px))}
@@ -62,8 +61,6 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 
 <div id="stage"></div>
 <div id="grain"></div>
-<div id="steer" hidden></div>
-
 <div id="splash">
   <div class="card">
     <div class="kicker">LBI NETMED · DATASPACE RECON</div>
@@ -76,7 +73,7 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
     </div>
     <p class="vrnote" id="vr-note">Checking for a VR headset…</p>
     <div class="keys">
-      <div><b>POINTER</b>steer</div><div><b>W / S</b>thrust · brake</div><div><b>A / D</b>yaw</div><div><b>Q / E</b>pitch</div><div><b>SHIFT</b>overdrive</div>
+      <div><b>W / S</b>thrust · brake</div><div><b>A / D</b>yaw</div><div><b>Q / E</b>pitch</div><div><b>SHIFT</b>overdrive</div>
       <div><b>SPACE / CLICK</b>fire tracer</div><div><b>H</b>help</div><div><b>B</b>bloom on / off</div>
     </div>
   </div>
@@ -383,8 +380,7 @@ function buildCockpit(){
   mountScreen('deg',  -1.26, RW, RH, false);
   mountScreen('ego',   -.92, RW, RH, false);
   mountScreen('comms', -.51, CW, RH, false);
-  mountScreen('radar', -.14, .143, .143, true);
-  mountScreen('gauge',  .14, .143, .143, true);
+  mountScreen('gauge',  0, .143, .143, true);
   mountScreen('mission', .51, CW, RH, false);
   mountScreen('flux',   .92, RW, RH, false);
   mountScreen('motif', 1.26, RW, RH, false);
@@ -429,7 +425,7 @@ function mountScreen(key, az, w, h, round){
 let speed = 0, targetSpeed = 0, energy = 100, gunSide = 1;
 const CRUISE = 26, BOOST = 70, REVERSE = -8, AP_CRUISE = 9;
 const keys = { w:false, s:false, a:false, d:false, q:false, e:false, shift:false };
-const ptr = { x:VW/2, y:VH*.4, mouse:false, touchThrust:false };
+const ptr = { x:VW/2, y:VH*.4, touchThrust:false };
 const yawPitch = new THREE.Vector2(), turnVel = new THREE.Vector2();
 let lastInput = performance.now(), launched = false, inXR = false;
 let autopilot = true, apTarget = null, apState = 'cruising', apTimer = performance.now() + 8000, bank = 0;
@@ -441,7 +437,6 @@ const activeHolos = new Map(), projectiles = [], walkers = [];
 const telemetry = { spd:[], wlk:[] };
 const commsLog = [];
 const motif = { tri:0, hub:0, chain:0, bridge:0, prev:{ tri:0, hub:0, chain:0, bridge:0 }, ex:{}, n:0, e:0 };
-const nearRadar = [];
 let frame = 0, bootT = 0, booted = false;
 let lockSprite, lockLabel, lockP, labelP;
 let xrThrust = false, xrBoost = false, xrBrake = false, xrFirePrev = false;
@@ -479,7 +474,7 @@ function updateFlight(dt){
     }
   } else {
     if (inXR){ inYaw = yawPitch.x; inPitch = yawPitch.y; }
-    else if (ptr.mouse || ptr.touchThrust){
+    else if (ptr.touchThrust){
       inYaw = dzone(clamp((ptr.x - VW/2)/(VW*.42), -1, 1)); inPitch = dzone(clamp((VH*.36 - ptr.y)/(VH*.64), -1, 1));
     }
     inYaw = clamp(inYaw + Number(keys.d) - Number(keys.a), -1, 1);
@@ -503,17 +498,10 @@ function updateFlight(dt){
   if (inXR){ rig.rotation.z = 0; }
   else {
     rig.rotation.z = reduceMotion ? 0 : bank;
-    const lx = ptr.mouse ? clamp((ptr.x - VW/2)/(VW/2), -1, 1) : 0, ly = ptr.mouse ? clamp((ptr.y - VH/2)/(VH/2), -1, 1) : 0;
-    camera.rotation.y = lerp(camera.rotation.y, -lx*.16, damp(3, dt));
-    camera.rotation.x = lerp(camera.rotation.x, -.15 - (ly > 0 ? ly*.8 : ly*.06), damp(3, dt));
-    camera.position.x = lerp(camera.position.x, lx*.04, damp(3, dt));
   }
   throttleLever.rotation.x = lerp(throttleLever.rotation.x, -clamp(speed/BOOST, -.2, 1)*.9 + .3, damp(4, dt));
   stickPivot.rotation.z = lerp(stickPivot.rotation.z, turnVel.x*.6, damp(5, dt));
   stickPivot.rotation.x = lerp(stickPivot.rotation.x, -turnVel.y*.6, damp(5, dt));
-
-  const st = $('steer'), show = !inXR && launched && !autopilot && ptr.mouse;
-  st.hidden = !show; if (show) st.style.transform = `translate(${ptr.x}px,${ptr.y}px)`;
 }
 
 // ---------------------------------------------------------------- XR input
@@ -934,27 +922,6 @@ function drawDeg(t){
   finish(p);
 }
 
-// ---------------------------------------------------------------- radar (round)
-const invM = new THREE.Matrix4();
-function drawRadar(t){
-  const p = screens.radar, { ctx, w, h } = p; bg(p);
-  const cx = w/2, cy = h/2, R = w/2 - 14, RANGE = 300;
-  ctx.strokeStyle = 'rgba(0,229,255,.22)'; ctx.lineWidth = 1.5;
-  [.33,.66,1].forEach(r => { ctx.beginPath(); ctx.arc(cx,cy,R*r,0,Math.PI*2); ctx.stroke(); });
-  ctx.beginPath(); ctx.moveTo(cx-R,cy); ctx.lineTo(cx+R,cy); ctx.moveTo(cx,cy-R); ctx.lineTo(cx,cy+R); ctx.stroke();
-  const sw = reduceMotion ? 0 : (t*1.2)%(Math.PI*2);
-  if (ctx.createConicGradient){ const g = ctx.createConicGradient(sw - Math.PI/2 - .9, cx, cy); g.addColorStop(0,'rgba(255,46,136,0)'); g.addColorStop(.143,'rgba(255,46,136,.32)'); g.addColorStop(.1431,'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2); ctx.fill(); }
-  ship.updateMatrixWorld(); invM.copy(ship.matrixWorld).invert();
-  for (const [i, d] of nearRadar){ const n = nodes[i]; _v.copy(n.position).applyMatrix4(invM);
-    const x = cx + _v.x/RANGE*R, y = cy + _v.z/RANGE*R; if ((x-cx)**2 + (y-cy)**2 > R*R) continue;
-    const el = clamp(_v.y/100, -1, 1); ctx.fillStyle = rgba(n.colorHex, .3 + .7*(1 - d/RANGE)); const s = 2 + (el > 0 ? el*2.5 : 0); ctx.fillRect(x-s/2, y-s/2, s, s); }
-  walkers.forEach(wk => { _v.copy(wk.mesh.position).applyMatrix4(invM); const x = cx + _v.x/RANGE*R, y = cy + _v.z/RANGE*R; if ((x-cx)**2 + (y-cy)**2 < R*R){ ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill(); } });
-  if (targetNode){ _v.copy(targetNode.position).applyMatrix4(invM); const x = cx + _v.x/RANGE*R, y = cy + _v.z/RANGE*R; ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 3; ctx.strokeRect(x-9,y-9,18,18); }
-  ctx.fillStyle = '#ff2e88'; ctx.shadowColor = '#ff2e88'; ctx.shadowBlur = 10; ctx.beginPath(); ctx.moveTo(cx,cy-14); ctx.lineTo(cx+10,cy+10); ctx.lineTo(cx,cy+4); ctx.lineTo(cx-10,cy+10); ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
-  ctx.font = `700 20px ${FD}`; ctx.fillStyle = '#00e5ff'; ctx.textAlign = 'center'; ctx.fillText('RADAR 300u', cx, 50); ctx.font = `17px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText(`${nearRadar.length} CONTACTS`, cx, h-40);
-  finish(p);
-}
-
 // ---------------------------------------------------------------- speed gauge (round)
 function drawGauge(){
   const p = screens.gauge, { ctx, w, h } = p; bg(p);
@@ -1193,6 +1160,7 @@ function layout(){
   const portrait = VW/VH < 1;
   camera.fov = portrait ? 96 : 78; camera.aspect = VW/VH; camera.position.set(0, 0, portrait ? .32 : .18); camera.updateProjectionMatrix();
   if (composer) composer.setSize(VW, VH);
+  camera.rotation.set(-.15, 0, 0);
   const sc = renderer.getPixelRatio()*VH/(2*Math.tan(camera.fov*Math.PI/360));
   pointMats.forEach(m => m.uniforms.uScale.value = sc);
 }
@@ -1209,7 +1177,7 @@ function start(data){
   rig = new THREE.Group(); ship.add(rig); rig.add(camera);
   ship.lookAt(new THREE.Vector3(0,0,0)); ship.rotateY(Math.PI);
   ['ego','deg','flux','motif'].forEach(k => mkPanel(k, 560, 400));
-  ['radar','gauge'].forEach(k => mkPanel(k, 420, 420));
+  mkPanel('gauge', 420, 420);
   ['comms','mission'].forEach(k => mkPanel(k, 720, 360));
   mkPanel('compass', 1024, 104);
   buildCockpit();
@@ -1257,11 +1225,11 @@ function setupVR(){
 }
 
 function bindInput(){
-  addEventListener('pointermove', e => { ptr.x = e.clientX; ptr.y = e.clientY; if (e.pointerType === 'mouse'){ ptr.mouse = true; if (launched) poke(); } });
+  addEventListener('pointermove', e => { if (e.pointerType !== 'mouse'){ ptr.x = e.clientX; ptr.y = e.clientY; } });
   addEventListener('pointerdown', e => {
     if (!launched || e.target.closest('button')) return;
-    ptr.x = e.clientX; ptr.y = e.clientY; poke();
-    if (e.pointerType === 'mouse'){ fire(); } else ptr.touchThrust = true;
+    poke();
+    if (e.pointerType === 'mouse'){ fire(); } else { ptr.x = e.clientX; ptr.y = e.clientY; ptr.touchThrust = true; }
   });
   addEventListener('pointerup', e => { if (e.pointerType !== 'mouse'){ ptr.touchThrust = false; ptr.x = VW/2; ptr.y = VH*.36; } });
   addEventListener('pointercancel', () => { ptr.touchThrust = false; });
@@ -1315,7 +1283,6 @@ function loop(){
   updateHolo(t, dt);
   updateLock();
   const s = inXR ? 2 : 1;   // screens refresh more slowly in a headset to protect frame rate
-  if (frame % (2*s) === 0){ nearRadar.length = 0; forNear(ship.position, 300, (i, d2) => nearRadar.push([i, Math.sqrt(d2)])); drawRadar(t); }
   if (frame % (2*s) === 1) drawEgo(t);
   if (frame % (3*s) === 0) drawGauge();
   if (frame % (3*s) === 1) drawMotif(t);
