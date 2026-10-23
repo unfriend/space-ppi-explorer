@@ -818,7 +818,17 @@ function completeObjective(){
 }
 // ---------------------------------------------------------------- sequencing drones (one earned per completed objective)
 const drones = [], DRONE_R = 9, DRONE_LEAD = 32, DRONE_MAX = 24;
-const droneGeo = new THREE.OctahedronGeometry(.7, 0), droneMat = new THREE.MeshBasicMaterial({ color:0x00e5ff, toneMapped:false });
+const droneGeo = new THREE.OctahedronGeometry(.7, 0);
+const droneMat = new THREE.MeshPhysicalMaterial({ color:0x49dfff, metalness:.45, roughness:.16, clearcoat:1, clearcoatRoughness:.12, transparent:true, opacity:.62, depthWrite:false, toneMapped:false });
+const droneInnerMat = new THREE.MeshBasicMaterial({ color:0x00e5ff, transparent:true, opacity:.28, blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false });
+const droneCoreMat = new THREE.MeshBasicMaterial({ color:0xc7fbff, toneMapped:false });
+const droneRingMat = new THREE.MeshBasicMaterial({ color:0x00e5ff, transparent:true, opacity:.72, blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false });
+const droneAccentMat = new THREE.MeshStandardMaterial({ color:0xffb347, metalness:.8, roughness:.2, emissive:0x6b2600, emissiveIntensity:.5 });
+const droneInnerGeo = new THREE.OctahedronGeometry(.7, 0);
+const droneCoreGeo = new THREE.IcosahedronGeometry(.2, 1);
+const droneRingGeo = new THREE.TorusGeometry(.82, .018, 6, 32);
+const droneTiltRingGeo = new THREE.TorusGeometry(.55, .014, 6, 32);
+const droneAccentGeo = new THREE.SphereGeometry(.065, 8, 6);
 const beamMat = new THREE.LineBasicMaterial({ color:0x00e5ff, transparent:true, opacity:.8, blending:THREE.AdditiveBlending, toneMapped:false });
 const takenBy = new Uint8Array(N);
 function dronePatrolOffset(d, i){
@@ -827,7 +837,15 @@ function dronePatrolOffset(d, i){
 }
 function spawnDrone(){
   if (drones.length >= DRONE_MAX) return;
-  const m = new THREE.Mesh(droneGeo, droneMat);
+  const m = new THREE.Group();
+  m.add(new THREE.Mesh(droneGeo, droneMat));
+  const inner = new THREE.Mesh(droneInnerGeo, droneInnerMat); inner.scale.setScalar(.52); m.add(inner);
+  m.add(new THREE.Mesh(droneCoreGeo, droneCoreMat));
+  const ring = new THREE.Mesh(droneRingGeo, droneRingMat); m.add(ring);
+  const tiltRing = new THREE.Mesh(droneTiltRingGeo, droneRingMat); tiltRing.rotation.x = Math.PI/2; tiltRing.rotation.z = Math.PI/4; m.add(tiltRing);
+  for (const p of [[.68,0,0],[-.68,0,0],[0,.68,0],[0,-.68,0],[0,0,.68],[0,0,-.68]]){
+    const accent = new THREE.Mesh(droneAccentGeo, droneAccentMat); accent.position.set(...p); m.add(accent);
+  }
   const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3).setUsage(THREE.DynamicDrawUsage));
   const beam = new THREE.Line(bg, beamMat);
   beam.frustumCulled = false; beam.visible = false; scene.add(m); scene.add(beam);
