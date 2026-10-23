@@ -622,6 +622,8 @@ function poke(){
 // ---------------------------------------------------------------- proximity, scanning, protein holograms
 const sphereGeo = new THREE.SphereGeometry(1, 10, 10), bondGeo = new THREE.CylinderGeometry(1, 1, 1, 6);
 const HOLO_RANGE = 260, HOLO_COUNT = 60;
+const HOLO_SHIP_RADIUS = 9, HOLO_RESTITUTION = .7;
+const holoShipVelocity = new THREE.Vector3(), holoNormal = new THREE.Vector3(), holoRelativeVelocity = new THREE.Vector3();
 function checkProximity(dt){
   const sp = ship.position, inRange = [];
   let closest = null, cd = 1e9;
@@ -633,7 +635,7 @@ function checkProximity(dt){
   const ids = new Set(near.map(n => n.id));
   let spawned = 0;
   near.forEach(n => {
-    if (!activeHolos.has(n.id)){ if (spawned++ >= 8) return; const h = makeHologram(n.colorHex); h.group.position.copy(n.position); scene.add(h.group); activeHolos.set(n.id, h); }
+    if (!activeHolos.has(n.id)){ if (spawned++ >= 8) return; const h = makeHologram(n.colorHex); h.group.position.copy(n.position); h.velocity = new THREE.Vector3(); scene.add(h.group); activeHolos.set(n.id, h); }
     else activeHolos.get(n.id).target = 1;
   });
   activeHolos.forEach((h,id) => { if (!ids.has(id)) h.target = 0; });
@@ -659,10 +661,25 @@ function makeHologram(colorHex){
 }
 function updateHolograms(dt){
   const ca = nodesGeo.attributes.aColor; let dirty = false;
+  holoShipVelocity.set(0,0,-speed).applyQuaternion(ship.quaternion);
   activeHolos.forEach((h,id) => {
     h.op = h.op < h.target ? Math.min(h.target, h.op + dt*1.5) : Math.max(h.target, h.op - dt*1.5);
     h.mats.forEach(m => m.opacity = m.baseOpacity*h.op);
     h.group.rotation.y += .25*dt; h.group.rotation.x += .12*dt;
+    if (h.op > 0){
+      h.group.position.addScaledVector(h.velocity, dt);
+      h.velocity.multiplyScalar(Math.exp(-1.2*dt));
+      holoNormal.copy(h.group.position).sub(ship.position);
+      const distance = holoNormal.length(), radius = HOLO_SHIP_RADIUS + 3*h.group.scale.x;
+      if (distance < radius){
+        if (distance < .001) holoNormal.set(0,0,1);
+        else holoNormal.multiplyScalar(1/distance);
+        h.group.position.copy(ship.position).addScaledVector(holoNormal, radius);
+        holoRelativeVelocity.copy(h.velocity).sub(holoShipVelocity);
+        const inwardSpeed = holoRelativeVelocity.dot(holoNormal);
+        if (inwardSpeed < 0) h.velocity.addScaledVector(holoNormal, -(1 + HOLO_RESTITUTION)*inwardSpeed);
+      }
+    }
     const n = nodes[id], v = 1 - h.op*.85; ca.setXYZ(id, n.disp.r*v, n.disp.g*v, n.disp.b*v); dirty = true;
     if (h.target === 0 && h.op === 0){ scene.remove(h.group); h.mats.forEach(m => m.dispose()); activeHolos.delete(id); ca.setXYZ(id, n.disp.r, n.disp.g, n.disp.b); }
   });
