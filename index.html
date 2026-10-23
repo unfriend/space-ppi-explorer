@@ -373,17 +373,16 @@ function buildCockpit(){
   pipe(arc(DASH.r0+.004, DASH.y0+.006, -DASH.a, DASH.a), .0028, M.pink);
   // lever and stick are kept as animation targets but no longer modelled
   throttleLever = new THREE.Group(); stickPivot = new THREE.Group();
-  holoRoot = new THREE.Group(); holoRoot.position.set(0, -.18, -.64); cockpitRoot.add(holoRoot);
+  holoRoot = new THREE.Group(); holoRoot.position.set(0, -.25, -.48); cockpitRoot.add(holoRoot);
 
   // every instrument sits on the single bar, edge to edge
-  const RW = .2, RH = .143, CW = .286;
-  mountScreen('deg',  -1.26, RW, RH, false);
-  mountScreen('ego',   -.92, RW, RH, false);
-  mountScreen('comms', -.51, CW, RH, false);
-  mountScreen('gauge',  0, .143, .143, true);
-  mountScreen('mission', .51, CW, RH, false);
-  mountScreen('flux',   .92, RW, RH, false);
-  mountScreen('motif', 1.26, RW, RH, false);
+  const RW = .19, RH = .143, CW = .286;
+  mountScreen('deg',  -1.282, RW, RH, false);
+  mountScreen('ego',   -.934, RW, RH, false);
+  mountScreen('comms', -.5, CW, RH, false);
+  mountScreen('mission', .5, CW, RH, false);
+  mountScreen('flux',   .934, RW, RH, false);
+  mountScreen('motif', 1.282, RW, RH, false);
 
   const compassMesh = new THREE.Mesh(new THREE.PlaneGeometry(.62, .062), new THREE.MeshBasicMaterial({ map:screens.compass.tex, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false }));
   compassMesh.position.set(0, .4, -1.05); compassMesh.rotation.x = .3; cockpitRoot.add(compassMesh);
@@ -922,25 +921,6 @@ function drawDeg(t){
   finish(p);
 }
 
-// ---------------------------------------------------------------- speed gauge (round)
-function drawGauge(){
-  const p = screens.gauge, { ctx, w, h } = p; bg(p);
-  const cx = w/2, cy = h/2 + 6, r = w*.38, a0 = Math.PI*.75, a1 = Math.PI*2.25, f = clamp(Math.abs(speed)/BOOST, 0, 1);
-  ctx.lineWidth = 16; ctx.strokeStyle = 'rgba(0,229,255,.12)'; ctx.beginPath(); ctx.arc(cx,cy,r,a0,a1); ctx.stroke();
-  const redA = a0 + (a1-a0)*(CRUISE/BOOST); ctx.strokeStyle = 'rgba(255,46,136,.22)'; ctx.beginPath(); ctx.arc(cx,cy,r,redA,a1); ctx.stroke();
-  const over = Math.abs(speed) > CRUISE + 1;
-  ctx.strokeStyle = over ? '#ff2e88' : '#00e5ff'; ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 16; ctx.beginPath(); ctx.arc(cx,cy,r,a0,a0+(a1-a0)*f); ctx.stroke(); ctx.shadowBlur = 0;
-  ctx.lineWidth = 8; ctx.strokeStyle = 'rgba(255,179,71,.15)'; ctx.beginPath(); ctx.arc(cx,cy,r-24,a0,a1); ctx.stroke();
-  ctx.strokeStyle = energy < 25 ? '#ff7a3d' : '#ffb347'; ctx.beginPath(); ctx.arc(cx,cy,r-24,a0,a0+(a1-a0)*energy/100); ctx.stroke();
-  ctx.lineWidth = 2; ctx.strokeStyle = '#8a7aa8'; for (let i=0;i<=10;i++){ const a = a0+(a1-a0)*i/10; ctx.beginPath(); ctx.moveTo(cx+Math.cos(a)*(r+12), cy+Math.sin(a)*(r+12)); ctx.lineTo(cx+Math.cos(a)*(r+20), cy+Math.sin(a)*(r+20)); ctx.stroke(); }
-  ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.font = `700 64px ${FD}`; ctx.fillText(Math.abs(speed).toFixed(1), cx, cy+18);
-  ctx.font = `18px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('u/s', cx, cy+44);
-  ctx.fillStyle = autopilot || over ? '#ff2e88' : '#00e5ff'; ctx.font = `700 19px ${FD}`;
-  ctx.fillText(autopilot ? 'AUTOPILOT' : over ? 'OVERDRIVE' : speed < -.3 ? 'REVERSE' : Math.abs(speed) > .3 ? 'CRUISE' : 'HOLD', cx, cy - 46);
-  ctx.font = `17px ${FM}`; ctx.fillStyle = '#ffb347'; ctx.fillText(`CELL ${energy.toFixed(0)}%`, cx, h - 46);
-  finish(p);
-}
-
 // ---------------------------------------------------------------- sector flux
 function drawFlux(){
   const p = screens.flux, { ctx, w, h } = p; bg(p); const top = header(p, 'SECTOR FLUX', '● LIVE', '#6dff8e');
@@ -1119,7 +1099,7 @@ function setupHolo(){
   const tgtM = new THREE.Mesh(new THREE.RingGeometry(.06,.085,24), new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, side:THREE.DoubleSide, fog:false })); group.add(tgtM);
   const lbl = mkPanel('holoLabel', 512, 64);
   const label = new THREE.Mesh(new THREE.PlaneGeometry(.2, .025), new THREE.MeshBasicMaterial({ map:lbl.tex, transparent:true, depthWrite:false, toneMapped:false }));
-  label.position.set(0, -.44, .11); label.rotation.x = -TILT; holoRoot.add(label);
+  label.position.set(0, -.16, .16); holoRoot.add(label);
   holo = { group, sample, NS, L, cur, col, flash, pg, slots, age, epos, ecol, eg, E, rewire, shipM, tgtM, base, lbl, lastShown:-1, WS };
 }
 const ease = x => x < .5 ? 4*x*x*x : 1 - Math.pow(-2*x+2, 3)/2;
@@ -1177,7 +1157,6 @@ function start(data){
   rig = new THREE.Group(); ship.add(rig); rig.add(camera);
   ship.lookAt(new THREE.Vector3(0,0,0)); ship.rotateY(Math.PI);
   ['ego','deg','flux','motif'].forEach(k => mkPanel(k, 560, 400));
-  mkPanel('gauge', 420, 420);
   ['comms','mission'].forEach(k => mkPanel(k, 720, 360));
   mkPanel('compass', 1024, 104);
   buildCockpit();
@@ -1284,7 +1263,6 @@ function loop(){
   updateLock();
   const s = inXR ? 2 : 1;   // screens refresh more slowly in a headset to protect frame rate
   if (frame % (2*s) === 1) drawEgo(t);
-  if (frame % (3*s) === 0) drawGauge();
   if (frame % (3*s) === 1) drawMotif(t);
   if (frame % (5*s) === 2) drawDeg(t);
   if (frame % (5*s) === 3) drawFlux();
