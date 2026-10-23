@@ -566,7 +566,6 @@ function buildCockpit(){
   const ck = new THREE.Group(); cockpitRoot.add(ck);
   ck.add(new THREE.Mesh(band(-DASH.a, DASH.a, DASH.r0, DASH.y0, DASH.r1, DASH.y1), M.hull2));
   const pipe = (curve, rad, mat) => ck.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 96, rad, 6, false), mat));
-  pipe(arc(DASH.r1+.004, DASH.y1+.006, -DASH.a, DASH.a), .0032, M.cyan);
   pipe(arc(DASH.r0+.004, DASH.y0+.006, -DASH.a, DASH.a), .0028, M.pink);
   holoRoot = new THREE.Group(); holoRoot.position.set(0, -.25, -.48); cockpitRoot.add(holoRoot);
 
