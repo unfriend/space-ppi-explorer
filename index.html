@@ -363,7 +363,7 @@ function roundRect(w, h, r){ const s = new THREE.Shape(), x = -w/2, y = -h/2;
   s.lineTo(x+r,y+h); s.quadraticCurveTo(x,y+h,x,y+h-r); s.lineTo(x,y+r); s.quadraticCurveTo(x,y,x+r,y); return s; }
 
 // dashboard face (pilot eye at origin): a sloped band that leans away from the pilot
-const DASH = { a:1.47, r0:.52, y0:-.6, r1:.76, y1:-.22 };
+const DASH = { a:1.47, r0:.56, y0:-.5, r1:.72, y1:-.26 };
 const TILT = Math.atan2(DASH.r1-DASH.r0, DASH.y1-DASH.y0);
 
 function buildCockpit(){
@@ -371,70 +371,23 @@ function buildCockpit(){
   cockpitRoot = new THREE.Group(); cockpitRoot.position.y = -.22; rig.add(cockpitRoot);
   const ck = new THREE.Group(); cockpitRoot.add(ck);
   ck.add(new THREE.Mesh(band(-DASH.a, DASH.a, DASH.r0, DASH.y0, DASH.r1, DASH.y1), dbl(M.hull)));
-  ck.add(new THREE.Mesh(band(-DASH.a, DASH.a, DASH.r1, DASH.y1, .96, -.2), dbl(M.trim)));
-  ck.add(new THREE.Mesh(band(-DASH.a, DASH.a, .96, -.2, 1.0, -.27), dbl(M.hull)));
-  const floorGlass = dbl(M.dark); floorGlass.transparent = true; floorGlass.opacity = .12; floorGlass.depthWrite = false;
-  ck.add(new THREE.Mesh(band(-DASH.a, DASH.a, DASH.r0, DASH.y0, .5, -.9), floorGlass));
   const pipe = (curve, rad, mat) => ck.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 96, rad, 6, false), mat));
-  pipe(arc(DASH.r1+.004, DASH.y1+.006, -DASH.a, DASH.a), .0036, M.cyan);
-  pipe(arc(.955, -.196, -DASH.a, DASH.a), .003, M.pink);
-  pipe(arc(DASH.r0+.006, DASH.y0+.01, -DASH.a, DASH.a), .003, M.violet);
-  [-1.32, 1.32].forEach(a => {
-    const rib = new THREE.Mesh(new THREE.BoxGeometry(.016, .45, .03), M.trim);
-    const r = lerp(DASH.r0, DASH.r1, .5), y = lerp(DASH.y0, DASH.y1, .5);
-    rib.position.set(r*Math.sin(a), y, -r*Math.cos(a)); rib.rotation.order = 'YXZ'; rib.rotation.y = -a; rib.rotation.x = -TILT; ck.add(rib);
-    const led = new THREE.Mesh(new THREE.BoxGeometry(.006, .3, .004), M.pink); led.position.z = .016; rib.add(led);
-  });
-
-  // canopy bow, bent away from the pilot, plus rails over the head
-  const bow = new THREE.CatmullRomCurve3([[-.95,-.24,-.3],[-.9,.1,-.62],[-.6,.4,-.88],[0,.5,-1.0],[.6,.4,-.88],[.9,.1,-.62],[.95,-.24,-.3]].map(p => new THREE.Vector3(...p)));
-  ck.add(new THREE.Mesh(new THREE.TubeGeometry(bow, 120, .03, 12, false), M.hull));
-  ck.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(bow.points.map(p => p.clone().multiplyScalar(.968))), 120, .0045, 6, false), M.pink));
-  ck.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(bow.points.map(p => p.clone().multiplyScalar(1.03))), 120, .003, 6, false), M.cyan));
-  [-1,1].forEach(sx => {
-    const rail = new THREE.CatmullRomCurve3([[.6*sx,.4,-.88],[.66*sx,.6,-.25],[.68*sx,.52,.45],[.7*sx,.2,.8]].map(p => new THREE.Vector3(...p)));
-    ck.add(new THREE.Mesh(new THREE.TubeGeometry(rail, 60, .024, 10, false), M.hull));
-    ck.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rail.points.map(p => new THREE.Vector3(p.x*.96, p.y*.96, p.z))), 60, .004, 6, false), M.violet));
-    const sc = new THREE.Mesh(new THREE.BoxGeometry(.34, .14, .8), M.hull); sc.position.set(.8*sx, -.56, .05); sc.rotation.z = -.18*sx; ck.add(sc);
-    const top = new THREE.Mesh(new THREE.BoxGeometry(.3, .012, .74), M.trim); top.position.set(0, .075, 0); sc.add(top);
-    for (let r=0;r<4;r++) for (let c=0;c<3;c++){
-      const cols = [M.pink, M.cyan, M.violet, M.sun]; const mat = cols[(r+c+(sx>0?1:0))%4].clone();
-      const b = new THREE.Mesh(new THREE.BoxGeometry(.04, .016, .035), mat); b.position.set(-.08 + c*.06, .088, .12 + r*.06); sc.add(b);
-      blinkers.push({ m:mat, base:mat.color.clone(), ph:Math.random()*10, sp:.5 + Math.random()*2.5 });
-    }
-  });
-  // throttle (left) and side-stick (right)
-  const thrBase = new THREE.Mesh(new THREE.BoxGeometry(.09, .05, .2), M.trim); thrBase.position.set(-.66, -.46, -.16); thrBase.rotation.z = .18; ck.add(thrBase);
-  throttleLever = new THREE.Group(); throttleLever.position.set(0, .02, .05); thrBase.add(throttleLever);
-  const lev = new THREE.Mesh(new THREE.CylinderGeometry(.008, .01, .14, 10), M.chrome); lev.position.y = .07; throttleLever.add(lev);
-  const knob = new THREE.Mesh(new THREE.BoxGeometry(.05, .035, .06), M.hull); knob.position.y = .15; throttleLever.add(knob);
-  const knobLed = new THREE.Mesh(new THREE.BoxGeometry(.052, .006, .062), M.pink); knobLed.position.y = .168; throttleLever.add(knobLed);
-  const stBase = new THREE.Mesh(new THREE.CylinderGeometry(.05, .06, .03, 20), M.trim); stBase.position.set(.66, -.46, -.12); stBase.rotation.z = -.18; ck.add(stBase);
-  stickPivot = new THREE.Group(); stickPivot.position.y = .015; stBase.add(stickPivot);
-  const stk = new THREE.Mesh(new THREE.CylinderGeometry(.012, .016, .15, 12), M.chrome); stk.position.y = .075; stickPivot.add(stk);
-  const grip = new THREE.Mesh(new THREE.CylinderGeometry(.022, .02, .08, 12), M.hull); grip.position.y = .17; stickPivot.add(grip);
-  const trig = new THREE.Mesh(new THREE.SphereGeometry(.009, 10, 10), M.cyan); trig.position.set(0, .2, -.022); stickPivot.add(trig);
-
-  // holo projector pedestal at the centre
+  pipe(arc(DASH.r1+.004, DASH.y1+.006, -DASH.a, DASH.a), .0032, M.cyan);
+  pipe(arc(DASH.r0+.004, DASH.y0+.006, -DASH.a, DASH.a), .0028, M.pink);
+  // lever and stick are kept as animation targets but no longer modelled
+  throttleLever = new THREE.Group(); stickPivot = new THREE.Group();
   holoRoot = new THREE.Group(); holoRoot.position.set(0, -.18, -.64); cockpitRoot.add(holoRoot);
-  const ped = new THREE.Group(); ped.position.set(0, -.272, -.64); ck.add(ped);
-  const col = new THREE.Mesh(new THREE.CylinderGeometry(.045, .07, .2, 24), M.hull); col.position.y = -.12; ped.add(col);
-  const colLed = new THREE.Mesh(new THREE.TorusGeometry(.058, .003, 6, 48), M.violet); colLed.rotation.x = Math.PI/2; colLed.position.y = -.08; ped.add(colLed);
-  ped.add(new THREE.Mesh(new THREE.CylinderGeometry(.085, .11, .06, 40), M.trim));
-  const ring1 = new THREE.Mesh(new THREE.TorusGeometry(.078, .004, 8, 64), M.cyan); ring1.rotation.x = Math.PI/2; ring1.position.y = .032; ped.add(ring1);
-  const ring2 = new THREE.Mesh(new THREE.TorusGeometry(.1, .0025, 8, 64), M.pink); ring2.rotation.x = Math.PI/2; ring2.position.y = -.01; ped.add(ring2);
-  const lens = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, .008, 40), new THREE.MeshBasicMaterial({ color:0x1d7a88, toneMapped:false })); lens.position.y = .034; ped.add(lens);
-  const cone = new THREE.Mesh(new THREE.CylinderGeometry(.13, .055, .16, 40, 1, true), new THREE.MeshBasicMaterial({ color:0x00e5ff, transparent:true, opacity:.025, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide }));
-  cone.position.y = .12; ped.add(cone);
 
-  mountScreen('deg',  -1.02, .52, .23, .165, false);
-  mountScreen('ego',   -.6,  .52, .23, .165, false);
-  mountScreen('radar', -.24, .55, .15, .15, true);
-  mountScreen('gauge',  .24, .55, .15, .15, true);
-  mountScreen('flux',   .6,  .52, .23, .165, false);
-  mountScreen('motif', 1.02, .52, .23, .165, false);
-  mountHigh('comms',  -.72, .29, .145);
-  mountHigh('mission', .72, .29, .145);
+  // every instrument sits on the single bar, edge to edge
+  const RW = .2, RH = .143, CW = .286;
+  mountScreen('deg',  -1.26, RW, RH, false);
+  mountScreen('ego',   -.92, RW, RH, false);
+  mountScreen('comms', -.51, CW, RH, false);
+  mountScreen('radar', -.14, .143, .143, true);
+  mountScreen('gauge',  .14, .143, .143, true);
+  mountScreen('mission', .51, CW, RH, false);
+  mountScreen('flux',   .92, RW, RH, false);
+  mountScreen('motif', 1.26, RW, RH, false);
 
   const compassMesh = new THREE.Mesh(new THREE.PlaneGeometry(.62, .062), new THREE.MeshBasicMaterial({ map:screens.compass.tex, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false }));
   compassMesh.position.set(0, .4, -1.05); compassMesh.rotation.x = .3; cockpitRoot.add(compassMesh);
@@ -453,49 +406,23 @@ function buildCockpit(){
 }
 
 function screenBody(group, w, h, round, p){
-  const d = .028;
+  const f = .008, mat = new THREE.MeshBasicMaterial({ map:p.tex, toneMapped:false, color:0xeeeeff });
   if (round){
-    const R = w/2, sh = new THREE.Shape(); sh.absarc(0,0,R+.018,0,Math.PI*2,false);
+    const R = w/2, sh = new THREE.Shape(); sh.absarc(0,0,R+f,0,Math.PI*2,false);
     const hole = new THREE.Path(); hole.absarc(0,0,R,0,Math.PI*2,true); sh.holes.push(hole);
-    const bz = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth:d, bevelEnabled:true, bevelSize:.004, bevelThickness:.004, bevelSegments:2, curveSegments:48 }), M.trim);
-    bz.position.z = -.012; group.add(bz);
-    const back = new THREE.Mesh(new THREE.CylinderGeometry(R+.012, R+.02, .05, 40), M.dark); back.rotation.x = Math.PI/2; back.position.z = -.03; group.add(back);
-    const scr = new THREE.Mesh(new THREE.CircleGeometry(R, 64), new THREE.MeshBasicMaterial({ map:p.tex, toneMapped:false, color:0xeeeeff })); scr.position.z = .004; group.add(scr);
-    const gl = new THREE.Mesh(new THREE.CircleGeometry(R, 64), M.glass); gl.position.z = .009; group.add(gl);
-    const halo = new THREE.Mesh(new THREE.TorusGeometry(R+.02, .0025, 6, 64), M.cyan); halo.position.z = .018; group.add(halo);
+    const bz = new THREE.Mesh(new THREE.ShapeGeometry(sh, 48), M.cyan); bz.position.z = .003; group.add(bz);
+    const scr = new THREE.Mesh(new THREE.CircleGeometry(R, 64), mat); scr.position.z = .004; group.add(scr);
   } else {
-    const sh = roundRect(w+.034, h+.034, .014); sh.holes.push(roundRect(w, h, .006));
-    const bz = new THREE.Mesh(new THREE.ExtrudeGeometry(sh, { depth:d, bevelEnabled:true, bevelSize:.004, bevelThickness:.004, bevelSegments:2, curveSegments:6 }), M.trim);
-    bz.position.z = -.012; group.add(bz);
-    const back = new THREE.Mesh(new THREE.BoxGeometry(w+.03, h+.03, .05), M.dark); back.position.z = -.035; group.add(back);
-    const scr = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map:p.tex, toneMapped:false, color:0xeeeeff })); scr.position.z = .004; group.add(scr);
-    const gl = new THREE.Mesh(new THREE.PlaneGeometry(w, h), M.glass); gl.position.z = .009; group.add(gl);
-    const hood = new THREE.Mesh(new THREE.BoxGeometry(w+.05, .007, .06), M.hull); hood.position.set(0, h/2+.022, .028); hood.rotation.x = .28; group.add(hood);
-    const hl = new THREE.Mesh(new THREE.BoxGeometry(w+.05, .002, .003), M.cyan); hl.position.set(0, h/2+.03, .058); hl.rotation.x = .28; group.add(hl);
-    for (let i=0;i<3;i++){
-      const kn = new THREE.Mesh(new THREE.CylinderGeometry(.009, .011, .016, 16), M.chrome); kn.rotation.x = Math.PI/2; kn.position.set(-w/2 + .03 + i*.03, -h/2 - .03, .012); group.add(kn);
-      const tick = new THREE.Mesh(new THREE.BoxGeometry(.002, .002, .008), M.pink); tick.position.set(0, .009, -.004); kn.add(tick);
-    }
-    for (let i=0;i<5;i++){
-      const mat = (i%2 ? M.pink : M.cyan).clone();
-      const led = new THREE.Mesh(new THREE.BoxGeometry(.012, .005, .004), mat); led.position.set(w/2 - .02 - i*.018, -h/2 - .03, .01); group.add(led);
-      blinkers.push({ m:mat, base:mat.color.clone(), ph:Math.random()*10, sp:.4 + Math.random()*3 });
-    }
-    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sy]) => { const s = new THREE.Mesh(new THREE.CylinderGeometry(.0035,.0035,.004,6), M.chrome); s.rotation.x = Math.PI/2; s.position.set(sx*(w/2+.009), sy*(h/2+.009), .018); group.add(s); });
+    const sh = roundRect(w+f*2, h+f*2, .006); sh.holes.push(roundRect(w, h, .0));
+    const bz = new THREE.Mesh(new THREE.ShapeGeometry(sh), M.trim); bz.position.z = .003; group.add(bz);
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat); scr.position.z = .004; group.add(scr);
   }
 }
-function mountScreen(key, az, t, w, h, round){
-  const r = lerp(DASH.r0, DASH.r1, t) + .004, y = lerp(DASH.y0, DASH.y1, t);
+function mountScreen(key, az, w, h, round){
+  const r = lerp(DASH.r0, DASH.r1, .5) - .026, y = lerp(DASH.y0, DASH.y1, .5);
   const g = new THREE.Group(); g.position.set(r*Math.sin(az), y, -r*Math.cos(az));
   g.rotation.order = 'YXZ'; g.rotation.y = -az; g.rotation.x = -TILT; cockpitRoot.add(g);
   screenBody(g, w, h, round, screens[key]);
-}
-function mountHigh(key, az, y, h){
-  const w = h*2, d = .84;
-  const g = new THREE.Group(); g.position.set(d*Math.sin(az), y, -d*Math.cos(az));
-  g.rotation.order = 'YXZ'; g.rotation.y = -az; g.rotation.x = -.16; cockpitRoot.add(g);
-  screenBody(g, w, h, false, screens[key]);
-  const arm = new THREE.Mesh(new THREE.CylinderGeometry(.008, .008, .16, 10), M.chrome); arm.position.set(0, h/2 + .09, -.03); g.add(arm);
 }
 
 // ================================================================ game state
