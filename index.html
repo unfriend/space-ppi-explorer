@@ -703,6 +703,7 @@ function completeObjective(){
 // ---------------------------------------------------------------- sequencing drones (one earned per completed objective)
 const drones = [], DRONE_R = 9, DRONE_LEAD = 32, DRONE_SCAN_R = 140, DRONE_MAX = 24;
 const droneGeo = new THREE.OctahedronGeometry(.7, 0);
+const droneShipVelocity = new THREE.Vector3();
 function dronePatrolOffset(d, i){
   const r = DRONE_R + (i%4)*1.5, sn = Math.sin(d.ang)*r;
   return _v.set(Math.cos(d.ang)*r, sn*Math.cos(d.tilt), -DRONE_LEAD + sn*Math.sin(d.tilt));
@@ -722,11 +723,17 @@ function spawnDrone(){
 function updateDrones(dt){
   const taken = new Set(drones.map(d => d.node && d.node.id));
   const forward = _v2.set(0,0,-1).applyQuaternion(ship.quaternion);
+  droneShipVelocity.copy(forward).multiplyScalar(speed);
   drones.forEach((d, i) => {
     d.ang += dt*(1.2 + (i%3)*.3);
     const orbit = dronePatrolOffset(d, i).applyQuaternion(ship.quaternion).add(ship.position);
     d.m.rotation.y += dt*3; d.m.rotation.x += dt*2;
-    if (d.node && sequenced.has(d.node.id)){ taken.delete(d.node.id); d.node = null; d.prog = 0; }
+    if (d.node){
+      const toNode = _v.copy(d.node.position).sub(ship.position), shipDistance = toNode.length();
+      if (sequenced.has(d.node.id) || shipDistance > DRONE_SCAN_R || toNode.dot(forward) < shipDistance*.78){
+        taken.delete(d.node.id); d.node = null; d.prog = 0;
+      }
+    }
     if (!d.node){
       let best = null, bd = 1e9;
       forNear(d.m.position, DRONE_SCAN_R, (j, d2) => {
@@ -740,9 +747,10 @@ function updateDrones(dt){
     }
     const goal = d.node ? d.node.position : orbit;
     _v.copy(goal).sub(d.m.position);
-    const distance = _v.length(), speed = Math.min(d.node ? 36 : 9, distance*1.5);
-    if (distance > .001) _v.multiplyScalar(speed/distance);
-    d.velocity.lerp(_v, damp(d.node ? 2.4 : 1.2, dt));
+    const distance = _v.length(), moveSpeed = Math.min(d.node ? 36 : 24, distance*1.5);
+    if (distance > .001) _v.multiplyScalar(moveSpeed/distance);
+    if (d.node) d.velocity.lerp(_v, damp(2.4, dt));
+    else d.velocity.copy(droneShipVelocity).add(_v);
     d.m.position.addScaledVector(d.velocity, dt);
     d.beam.visible = !!d.node;
     if (d.node){
