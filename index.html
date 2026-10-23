@@ -73,13 +73,13 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
     </div>
     <p class="vrnote" id="vr-note">Checking for a VR headset…</p>
     <div class="keys">
-      <div><b>W / S</b>thrust · brake</div><div><b>A / D</b>yaw</div><div><b>Q / E</b>pitch</div><div><b>SHIFT</b>overdrive</div>
+      <div><b>MOUSE</b>steer</div><div><b>W / S</b>thrust · brake</div><div><b>A / D</b>yaw</div><div><b>Q / E</b>pitch</div><div><b>SHIFT</b>overdrive</div>
       <div><b>SPACE / CLICK</b>fire tracer</div><div><b>H</b>help</div><div><b>B</b>bloom on / off</div>
     </div>
   </div>
 </div>
 
-<div id="help" class="off"><b>W/S</b> thrust · <b>A/D</b> yaw · <b>Q/E</b> pitch · <b>SHIFT</b> overdrive · <b>SPACE</b> tracer · <b>B</b> bloom · <b>H</b> hide<br>VR: right stick steer · left trigger thrust · grip overdrive · right trigger fire</div>
+<div id="help" class="off"><b>MOUSE</b> steer · <b>W/S</b> thrust · <b>A/D</b> yaw · <b>Q/E</b> pitch · <b>SHIFT</b> overdrive · <b>SPACE</b> tracer · <b>B</b> bloom · <b>H</b> hide<br>VR: right stick steer · left trigger thrust · grip overdrive · right trigger fire</div>
 <div class="touch"><button class="b" id="t-boost" type="button">BOOST</button><button id="t-fire" type="button">FIRE</button></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -424,7 +424,7 @@ function mountScreen(key, az, w, h, round){
 let speed = 0, targetSpeed = 0, energy = 100, gunSide = 1;
 const CRUISE = 26, BOOST = 70, REVERSE = -8, AP_CRUISE = 9;
 const keys = { w:false, s:false, a:false, d:false, q:false, e:false, shift:false };
-const ptr = { x:VW/2, y:VH*.4, touchThrust:false };
+const ptr = { x:VW/2, y:VH*.36, touchThrust:false, mouse:matchMedia('(pointer:fine)').matches };
 const yawPitch = new THREE.Vector2(), turnVel = new THREE.Vector2();
 let lastInput = performance.now(), launched = false, inXR = false;
 let autopilot = true, apTarget = null, apState = 'cruising', apTimer = performance.now() + 8000, bank = 0;
@@ -473,7 +473,7 @@ function updateFlight(dt){
     }
   } else {
     if (inXR){ inYaw = yawPitch.x; inPitch = yawPitch.y; }
-    else if (ptr.touchThrust){
+    else if (ptr.touchThrust || ptr.mouse){
       inYaw = dzone(clamp((ptr.x - VW/2)/(VW*.42), -1, 1)); inPitch = dzone(clamp((VH*.36 - ptr.y)/(VH*.64), -1, 1));
     }
     inYaw = clamp(inYaw + Number(keys.d) - Number(keys.a), -1, 1);
@@ -1220,11 +1220,15 @@ function setupVR(){
 }
 
 function bindInput(){
-  addEventListener('pointermove', e => { if (e.pointerType !== 'mouse'){ ptr.x = e.clientX; ptr.y = e.clientY; } });
+  addEventListener('pointermove', e => {
+    if (e.pointerType === 'mouse'){ ptr.mouse = true; ptr.x = e.clientX; ptr.y = e.clientY; poke(); }
+    else { ptr.x = e.clientX; ptr.y = e.clientY; }
+  });
+  addEventListener('pointerleave', e => { if (e.pointerType === 'mouse'){ ptr.x = VW/2; ptr.y = VH*.36; } });
   addEventListener('pointerdown', e => {
     if (!launched || e.target.closest('button')) return;
     poke();
-    if (e.pointerType === 'mouse'){ fire(); } else { ptr.x = e.clientX; ptr.y = e.clientY; ptr.touchThrust = true; }
+    if (e.pointerType === 'mouse'){ ptr.mouse = true; ptr.x = e.clientX; ptr.y = e.clientY; fire(); } else { ptr.x = e.clientX; ptr.y = e.clientY; ptr.touchThrust = true; }
   });
   addEventListener('pointerup', e => { if (e.pointerType !== 'mouse'){ ptr.touchThrust = false; ptr.x = VW/2; ptr.y = VH*.36; } });
   addEventListener('pointercancel', () => { ptr.touchThrust = false; });
