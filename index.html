@@ -297,13 +297,13 @@ function buildScenery(){
         if (y < .55){ float band = fract(y*16. + uTime*.08); float w = mix(.55,.05,y/.55); if (band < w) discard; }
         gl_FragColor = vec4(c*.78, smoothstep(.5,.47,r)); }`
   }));
-  scene.add(sun);
+  sun.renderOrder = -9; scene.add(sun);
   const gc = document.createElement('canvas'); gc.width = gc.height = 256;
   const gx = gc.getContext('2d'), gg = gx.createRadialGradient(128,128,0,128,128,128);
   gg.addColorStop(0,'rgba(255,90,160,.28)'); gg.addColorStop(.4,'rgba(255,46,136,.08)'); gg.addColorStop(1,'rgba(0,0,0,0)');
   gx.fillStyle = gg; gx.fillRect(0,0,256,256);
   sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map:new THREE.CanvasTexture(gc), blending:THREE.AdditiveBlending, depthWrite:false, fog:false, transparent:true }));
-  sunGlow.scale.set(2600,2600,1); scene.add(sunGlow);
+  sunGlow.scale.set(2600,2600,1); sunGlow.renderOrder = -9; scene.add(sunGlow);
 
   floor = new THREE.Mesh(new THREE.PlaneGeometry(12000,12000), new THREE.ShaderMaterial({
     transparent:true, depthWrite:false, fog:false, blending:THREE.AdditiveBlending, extensions:{ derivatives:true },
