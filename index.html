@@ -51,7 +51,6 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 #help b{color:var(--cyan);font-weight:400}
 #help.off{opacity:0}
 #steer{position:fixed;left:0;top:0;z-index:12;width:12px;height:12px;margin:-6px 0 0 -6px;border:1px solid var(--pink);border-radius:50%;pointer-events:none;box-shadow:0 0 10px var(--pink)}
-#hold{position:fixed;z-index:12;left:50%;top:14px;transform:translateX(-50%);font-size:10px;letter-spacing:.3em;color:var(--sun);pointer-events:none;opacity:0;transition:opacity .2s;white-space:nowrap}
 .touch{display:none}
 @media (pointer:coarse){
   .touch{display:flex;position:fixed;z-index:16;gap:10px;right:max(16px,env(safe-area-inset-right,0px));bottom:max(80px,calc(env(safe-area-inset-bottom,0px) + 80px))}
@@ -64,7 +63,6 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 <div id="stage"></div>
 <div id="grain"></div>
 <div id="steer" hidden></div>
-<div id="hold">STEERING HELD · POINTER OVER DASHBOARD</div>
 
 <div id="splash">
   <div class="card">
@@ -375,7 +373,8 @@ function buildCockpit(){
   ck.add(new THREE.Mesh(band(-DASH.a, DASH.a, DASH.r0, DASH.y0, DASH.r1, DASH.y1), dbl(M.hull)));
   ck.add(new THREE.Mesh(band(-DASH.a, DASH.a, DASH.r1, DASH.y1, .96, -.2), dbl(M.trim)));
   ck.add(new THREE.Mesh(band(-DASH.a, DASH.a, .96, -.2, 1.0, -.27), dbl(M.hull)));
-  ck.add(new THREE.Mesh(band(-DASH.a, DASH.a, DASH.r0, DASH.y0, .5, -.9), dbl(M.dark)));
+  const floorGlass = dbl(M.dark); floorGlass.transparent = true; floorGlass.opacity = .12; floorGlass.depthWrite = false;
+  ck.add(new THREE.Mesh(band(-DASH.a, DASH.a, DASH.r0, DASH.y0, .5, -.9), floorGlass));
   const pipe = (curve, rad, mat) => ck.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 96, rad, 6, false), mat));
   pipe(arc(DASH.r1+.004, DASH.y1+.006, -DASH.a, DASH.a), .0036, M.cyan);
   pipe(arc(.955, -.196, -DASH.a, DASH.a), .003, M.pink);
@@ -424,8 +423,8 @@ function buildCockpit(){
   ped.add(new THREE.Mesh(new THREE.CylinderGeometry(.085, .11, .06, 40), M.trim));
   const ring1 = new THREE.Mesh(new THREE.TorusGeometry(.078, .004, 8, 64), M.cyan); ring1.rotation.x = Math.PI/2; ring1.position.y = .032; ped.add(ring1);
   const ring2 = new THREE.Mesh(new THREE.TorusGeometry(.1, .0025, 8, 64), M.pink); ring2.rotation.x = Math.PI/2; ring2.position.y = -.01; ped.add(ring2);
-  const lens = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, .008, 40), new THREE.MeshBasicMaterial({ color:0x66f3ff, toneMapped:false })); lens.position.y = .034; ped.add(lens);
-  const cone = new THREE.Mesh(new THREE.CylinderGeometry(.13, .055, .16, 40, 1, true), new THREE.MeshBasicMaterial({ color:0x00e5ff, transparent:true, opacity:.07, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide }));
+  const lens = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, .008, 40), new THREE.MeshBasicMaterial({ color:0x1d7a88, toneMapped:false })); lens.position.y = .034; ped.add(lens);
+  const cone = new THREE.Mesh(new THREE.CylinderGeometry(.13, .055, .16, 40, 1, true), new THREE.MeshBasicMaterial({ color:0x00e5ff, transparent:true, opacity:.025, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide }));
   cone.position.y = .12; ped.add(cone);
 
   mountScreen('deg',  -1.02, .52, .23, .165, false);
@@ -449,7 +448,7 @@ function buildCockpit(){
   reticle.children.forEach(c => c.renderOrder = 50);
 
   const l1 = new THREE.PointLight(0xff2e88, .9, 2.4); l1.position.set(0, .45, -.4); cockpitRoot.add(l1);
-  const l2 = new THREE.PointLight(0x00e5ff, .9, 1.6); l2.position.set(0, -.1, -.6); cockpitRoot.add(l2);
+  const l2 = new THREE.PointLight(0x00e5ff, .3, 1.6); l2.position.set(0, -.1, -.6); cockpitRoot.add(l2);
   const l3 = new THREE.PointLight(0xa66bff, .6, 2); l3.position.set(0, -.2, .3); cockpitRoot.add(l3);
 }
 
@@ -525,7 +524,6 @@ function log(msg){ SFX.chatter(); commsLog.push({ msg, at:performance.now() }); 
 // ---------------------------------------------------------------- flight
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
 const dzone = v => { const a = Math.abs(v); return a < .07 ? 0 : Math.sign(v)*Math.pow((a-.07)/.93, 1.4); };
-const steerZoneBottom = () => VH*.6;
 
 function updateFlight(dt){
   const now = performance.now();
@@ -552,13 +550,10 @@ function updateFlight(dt){
       targetSpeed = 1.2; ship.rotateY(.035*dt); bank = lerp(bank, 0, damp(1, dt));
       if (now > apTimer){ apState = 'cruising'; apTarget = null; apTimer = now + 10000 + Math.random()*8000; }
     }
-    $('hold').style.opacity = 0;
   } else {
     if (inXR){ inYaw = yawPitch.x; inPitch = yawPitch.y; }
     else if (ptr.mouse || ptr.touchThrust){
-      const over = ptr.y > steerZoneBottom();
-      $('hold').style.opacity = over && ptr.mouse ? 1 : 0;
-      if (!over){ inYaw = dzone(clamp((ptr.x - VW/2)/(VW*.42), -1, 1)); inPitch = dzone(clamp((VH*.36 - ptr.y)/(VH*.34), -1, 1)); }
+      inYaw = dzone(clamp((ptr.x - VW/2)/(VW*.42), -1, 1)); inPitch = dzone(clamp((VH*.36 - ptr.y)/(VH*.64), -1, 1));
     }
     inYaw = clamp(inYaw + Number(keys.d) - Number(keys.a), -1, 1);
     inPitch = clamp(inPitch + Number(keys.e) - Number(keys.q), -1, 1);
@@ -583,14 +578,14 @@ function updateFlight(dt){
     rig.rotation.z = reduceMotion ? 0 : bank;
     const lx = ptr.mouse ? clamp((ptr.x - VW/2)/(VW/2), -1, 1) : 0, ly = ptr.mouse ? clamp((ptr.y - VH/2)/(VH/2), -1, 1) : 0;
     camera.rotation.y = lerp(camera.rotation.y, -lx*.16, damp(3, dt));
-    camera.rotation.x = lerp(camera.rotation.x, -.15 - ly*.06, damp(3, dt));
+    camera.rotation.x = lerp(camera.rotation.x, -.15 - (ly > 0 ? ly*.8 : ly*.06), damp(3, dt));
     camera.position.x = lerp(camera.position.x, lx*.04, damp(3, dt));
   }
   throttleLever.rotation.x = lerp(throttleLever.rotation.x, -clamp(speed/BOOST, -.2, 1)*.9 + .3, damp(4, dt));
   stickPivot.rotation.z = lerp(stickPivot.rotation.z, turnVel.x*.6, damp(5, dt));
   stickPivot.rotation.x = lerp(stickPivot.rotation.x, -turnVel.y*.6, damp(5, dt));
 
-  const st = $('steer'), show = !inXR && launched && !autopilot && ptr.mouse && ptr.y < steerZoneBottom();
+  const st = $('steer'), show = !inXR && launched && !autopilot && ptr.mouse;
   st.hidden = !show; if (show) st.style.transform = `translate(${ptr.x}px,${ptr.y}px)`;
 }
 
@@ -1339,7 +1334,7 @@ function bindInput(){
   addEventListener('pointerdown', e => {
     if (!launched || e.target.closest('button')) return;
     ptr.x = e.clientX; ptr.y = e.clientY; poke();
-    if (e.pointerType === 'mouse'){ if (e.clientY < steerZoneBottom()) fire(); } else ptr.touchThrust = true;
+    if (e.pointerType === 'mouse'){ fire(); } else ptr.touchThrust = true;
   });
   addEventListener('pointerup', e => { if (e.pointerType !== 'mouse'){ ptr.touchThrust = false; ptr.x = VW/2; ptr.y = VH*.36; } });
   addEventListener('pointercancel', () => { ptr.touchThrust = false; });
