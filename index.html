@@ -1334,13 +1334,14 @@ function drawComms(force){
   finish(p);
 }
 function drawMission(){
-  const sig = `${score}|${sequenced.size}|${mapped.size}|${objective ? objective.ci + ':' + objective.have + ':' + objective.need + objective.type : ''}`;
+  const sig = `${score}|${drones.length}|${sequenced.size}|${mapped.size}|${objective ? objective.ci + ':' + objective.have + ':' + objective.need + objective.type : ''}`;
   if (sig === missionSig) return; missionSig = sig;
   const p = screens.mission, { ctx, w, h } = p; bg(p);
   let rk = RANKS[0][1]; RANKS.forEach(([s,n]) => { if (score >= s) rk = n; });
   const top = header(p, 'MISSION', rk, '#ffb347');
   ctx.textAlign = 'left'; ctx.font = `17px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('SCORE', 18, top + 20);
   ctx.font = `700 56px ${FD}`; ctx.fillStyle = '#fff'; ctx.shadowColor = '#ff2e88'; ctx.shadowBlur = 14; ctx.fillText(score.toLocaleString('en-US'), 18, top + 74); ctx.shadowBlur = 0;
+  ctx.font = `20px ${FM}`; ctx.fillStyle = '#00e5ff'; ctx.fillText(`DRONES ${drones.length}`, 18, top + 112);
   if (objective){ const s = SECT[objective.ci];
     ctx.font = `24px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('OBJECTIVE', 300, top + 20);
     ctx.font = `700 38px ${FD}`; ctx.fillStyle = s.css; ctx.fillText(`${objective.type === 'deploy' ? 'DEPLOY' : 'SEQUENCE'} ${objective.type === 'deploy' ? objective.need + ' WALKS' : objective.need}`, 300, top + 62, 402);
