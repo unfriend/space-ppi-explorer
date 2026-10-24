@@ -51,6 +51,10 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 #help b{color:var(--cyan);font-weight:400}
 #help.off{opacity:0}
 .touch{display:none}
+#ap-btn{position:fixed;z-index:17;top:max(16px,env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));font-family:var(--f-disp);font-weight:700;font-size:12px;letter-spacing:.25em;padding:10px 16px;color:#fff;cursor:pointer;background:rgba(7,1,15,.6);border:1px solid var(--cyan)}
+#ap-btn[aria-pressed="true"]{background:rgba(0,229,255,.3);box-shadow:0 0 18px rgba(0,229,255,.5)}
+#ap-btn:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.touch button:disabled{opacity:.35}
 @media (pointer:coarse){
   .touch{display:flex;position:fixed;z-index:16;gap:10px;right:max(16px,env(safe-area-inset-right,0px));bottom:max(80px,calc(env(safe-area-inset-bottom,0px) + 80px))}
   .touch button{font-family:var(--f-disp);font-weight:700;font-size:12px;letter-spacing:.15em;color:#fff;width:66px;height:66px;border-radius:50%;background:rgba(255,46,136,.2);border:1px solid var(--pink)}
@@ -80,6 +84,7 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 </div>
 
 <div id="help" class="off"><b>MOUSE</b> steer · <b>W/S</b> thrust · <b>A/D</b> yaw · <b>Q/E</b> pitch · <b>SHIFT</b> overdrive · <b>SPACE</b> tracer · <b>B</b> bloom · <b>M</b> mute · <b>H</b> hide<br>VR: right stick steer · left trigger thrust · grip overdrive · right trigger fire</div>
+<button id="ap-btn" type="button" aria-pressed="false">AUTOPILOT: OFF</button>
 <div class="touch"><button class="b" id="t-boost" type="button">BOOST</button><button id="t-fire" type="button">FIRE</button></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -608,7 +613,7 @@ const CRUISE = 26, BOOST = 70, REVERSE = -8, AP_CRUISE = 9;
 const keys = { w:false, s:false, a:false, d:false, q:false, e:false, shift:false };
 const ptr = { x:VW/2, y:VH*.36, touchThrust:false, mouse:matchMedia('(pointer:fine)').matches };
 const yawPitch = new THREE.Vector2(), turnVel = new THREE.Vector2();
-let lastInput = performance.now(), launched = false, inXR = false;
+let lastInput = performance.now(), launched = false, inXR = false, apLock = false;
 let autopilot = true, apTarget = null, apState = 'cruising', apTimer = performance.now() + 8000, bank = 0;
 let targetNode = null, scanNode = null, scanProg = 0;
 const SCAN_R = 22;
@@ -682,6 +687,7 @@ function updateFlight(dt){
 // ---------------------------------------------------------------- XR input
 function pollXR(){
   xrThrust = xrBoost = xrBrake = false; yawPitch.set(0,0);
+  if (apLock) return;
   const s = renderer.xr.getSession(); if (!s) return;
   let any = false, fireNow = false;
   for (const src of s.inputSources){
@@ -706,6 +712,7 @@ function pollXR(){
 
 function poke(){
   lastInput = performance.now();
+  if (apLock) return;
   if (launched && autopilot){ autopilot = false; turnVel.set(0,0); log('MANUAL CONTROL'); }
 }
 
@@ -1078,7 +1085,7 @@ const SFX = (() => {
       f.frequency.setValueAtTime(on ? 300 : 2500, t); f.frequency.exponentialRampToValueAtTime(on ? 2500 : 250, t+1); env(g, t, .3, .08, .8); n.connect(f); f.connect(g); g.connect(sfxBus); n.start(t); n.stop(t+1.2); }
   };
 })();
-addEventListener('keydown', e => { if (e.code === 'KeyM') SFX.toggle(); });
+addEventListener('keydown', e => { if (!apLock && e.code === 'KeyM') SFX.toggle(); });
 
 // ---------------------------------------------------------------- tracers & walkers
 const tracerGeo = new THREE.CylinderGeometry(.05,.05,5,8).rotateX(Math.PI/2), tracerGlow = new THREE.CylinderGeometry(.18,.18,5,8).rotateX(Math.PI/2);
@@ -1589,12 +1596,13 @@ function setupVR(){
 
 function bindInput(){
   addEventListener('pointermove', e => {
+    if (apLock) return;
     if (e.pointerType === 'mouse'){ ptr.mouse = true; ptr.x = e.clientX; ptr.y = e.clientY; poke(); }
     else { ptr.x = e.clientX; ptr.y = e.clientY; }
   });
   addEventListener('pointerleave', e => { if (e.pointerType === 'mouse'){ ptr.x = VW/2; ptr.y = VH*.36; } });
   addEventListener('pointerdown', e => {
-    if (!launched || e.target.closest('button')) return;
+    if (!launched || apLock || e.target.closest('button')) return;
     SFX.start(); poke();
     if (e.pointerType === 'mouse'){ ptr.mouse = true; ptr.x = e.clientX; ptr.y = e.clientY; fire(); } else { ptr.x = e.clientX; ptr.y = e.clientY; ptr.touchThrust = true; }
   });
@@ -1602,6 +1610,7 @@ function bindInput(){
   addEventListener('pointercancel', () => { ptr.touchThrust = false; });
   addEventListener('keydown', e => {
     if (!launched){ if ((e.code === 'Enter' || e.code === 'Space') && !$('btn-launch').disabled){ launch(); e.preventDefault(); } return; }
+    if (apLock) return;
     poke();
     switch (e.code){
       case 'KeyW': case 'ArrowUp': keys.w = true; break;
@@ -1618,8 +1627,18 @@ function bindInput(){
   });
   addEventListener('keyup', e => { switch (e.code){ case 'KeyW': case 'ArrowUp': keys.w = false; break; case 'KeyS': case 'ArrowDown': keys.s = false; break; case 'KeyA': keys.a = false; break; case 'KeyD': keys.d = false; break; case 'KeyQ': keys.q = false; break; case 'KeyE': keys.e = false; break; case 'ShiftLeft': case 'ShiftRight': keys.shift = false; break; } });
   $('btn-launch').addEventListener('click', launch);
-  $('t-fire').addEventListener('pointerdown', e => { e.preventDefault(); poke(); fire(); });
-  $('t-boost').addEventListener('pointerdown', e => { e.preventDefault(); poke(); keys.shift = true; ptr.touchThrust = true; });
+  $('ap-btn').addEventListener('click', () => {
+    apLock = !apLock;
+    const b = $('ap-btn'); b.setAttribute('aria-pressed', apLock); b.textContent = 'AUTOPILOT: ' + (apLock ? 'ON' : 'OFF');
+    $('t-fire').disabled = $('t-boost').disabled = apLock;
+    if (apLock){
+      for (const k in keys) keys[k] = false;
+      ptr.touchThrust = false;
+      if (launched && !autopilot){ autopilot = true; apTarget = null; apState = 'cruising'; apTimer = performance.now() + 3000; log('AUTOPILOT LOCKED'); }
+    } else { lastInput = performance.now(); if (launched) log('CONTROLS RESTORED'); }
+  });
+  $('t-fire').addEventListener('pointerdown', e => { e.preventDefault(); if (apLock) return; poke(); fire(); });
+  $('t-boost').addEventListener('pointerdown', e => { e.preventDefault(); if (apLock) return; poke(); keys.shift = true; ptr.touchThrust = true; });
   $('t-boost').addEventListener('pointerup', () => { keys.shift = false; ptr.touchThrust = false; });
 }
 
