@@ -69,7 +69,7 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
   <div class="card">
     <div class="kicker">LBI NETMED · DATASPACE RECON</div>
     <h1>INTERACTOME<span>FLIGHT DECK</span></h1>
-    <p class="lede">Fly a slow recon craft through a 16,000-protein interaction network. Drift close to a node to sequence it, fire tracers to launch random walks, and complete sector-specific objectives from the cockpit.</p>
+    <p class="lede">Fly a slow recon craft through a 16,000-protein interaction network. Drift close to a node to sequence it, fire tracers to launch random walks, and map the network as visited nodes turn grey.</p>
     <div class="sync"><span id="sync-lbl">SYNCING DATASPACE</span><div class="bar"><i id="sync-bar"></i></div></div>
     <div class="btns">
       <button class="go" id="btn-launch" type="button" disabled>LAUNCH</button>
@@ -628,7 +628,14 @@ let lockSprite, lockLabel, lockP, labelP;
 let xrThrust = false, xrBoost = false, xrBrake = false, xrFirePrev = false;
 
 function log(msg){ SFX.chatter(); const at = performance.now(); commsLog.push({ msg, at }); if (commsLog.length > 8) commsLog.shift(); commsAnimUntil = at + msg.length*22 + 300; }
-function markMapped(n){ if (mapped.has(n.id)) return false; mapped.add(n.id); mappedCnt[n.ci]++; return true; }
+function markMapped(n){
+  if (mapped.has(n.id)) return false;
+  mapped.add(n.id); mappedCnt[n.ci]++;
+  n.disp.setRGB(.32,.32,.36);
+  if (nodesGeo){ const ca = nodesGeo.attributes.aColor; ca.setXYZ(n.id, n.disp.r, n.disp.g, n.disp.b); ca.needsUpdate = true; }
+  if (holo && n.id % 8 === 0){ holo.mapped.setX(n.id/8, 1); holo.mapped.needsUpdate = true; }
+  return true;
+}
 
 // ---------------------------------------------------------------- flight
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _e = new THREE.Euler();
@@ -860,9 +867,6 @@ function updateHolograms(dt){
 function markSequenced(n, live, dronePos, droneCount){
   if (sequenced.has(n.id)) return;
   sequenced.add(n.id); seqMark[n.id] = 1; seqCnt[n.ci]++; markMapped(n);
-  n.disp.copy(n.base).lerp(WHITE, .6);
-  const ca = nodesGeo.attributes.aColor; ca.setXYZ(n.id, n.disp.r, n.disp.g, n.disp.b); ca.needsUpdate = true;
-  if (holo && n.id % 8 === 0){ holo.seq.setX(n.id/8, 1); holo.seq.needsUpdate = true; }
   if (!live) return;
   SFX.bleep('done', dronePos, droneCount);
   let pts = 100 + n.degree*8; activity[n.ci] += 6;
@@ -1109,6 +1113,7 @@ function updateProjectiles(dt){
 }
 const walkerGeo = new THREE.SphereGeometry(.45,10,8), walkerMat = new THREE.MeshBasicMaterial({ color:0xffffff, toneMapped:false });
 function startWalker(n){
+  if (markMapped(n)) score += 3;
   const m = new THREE.Mesh(walkerGeo, walkerMat); m.position.copy(n.position); scene.add(m);
   const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(160*3), 3).setUsage(THREE.DynamicDrawUsage)); tg.setDrawRange(0,0);
   const trail = new THREE.Line(tg, new THREE.LineBasicMaterial({ color:n.colorHex, transparent:true, blending:THREE.AdditiveBlending, toneMapped:false })); trail.frustumCulled = false; scene.add(trail);
@@ -1215,8 +1220,9 @@ function drawEgo(t){
       ctx.beginPath(); ctx.moveTo(P[a][0],P[a][1]); ctx.lineTo(P[b][0],P[b][1]); ctx.stroke();
       if (core){ const k = (t*.6 + b*.13)%1; ctx.fillStyle = '#fff'; ctx.fillRect(P[a][0]+(P[b][0]-P[a][0])*k-2, P[a][1]+(P[b][1]-P[a][1])*k-2, 4, 4); } });
     ego.items.forEach((it,i) => { const r = it.ring === 0 ? 12 : it.ring === 1 ? 7 : 4;
-      glowDot(ctx, P[i][0], P[i][1], r, it.n.colorHex, it.ring === 0 ? 22 : 8);
-      if (seqMark[it.n.id]){ ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(P[i][0],P[i][1],r+5,0,Math.PI*2); ctx.stroke(); } });
+      const color = mapped.has(it.n.id) ? '#777780' : it.n.colorHex;
+      glowDot(ctx, P[i][0], P[i][1], r, color, it.ring === 0 ? 22 : 8);
+      if (mapped.has(it.n.id)){ ctx.strokeStyle = '#a7a7af'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(P[i][0],P[i][1],r+5,0,Math.PI*2); ctx.stroke(); } });
     ctx.font = `700 22px ${FM}`; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(targetNode.name, cx, cy - 22);
     if (scanNode === targetNode && scanProg > 0){ ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(cx,cy,19,-Math.PI/2,-Math.PI/2+scanProg*Math.PI*2); ctx.stroke(); }
   }
@@ -1224,7 +1230,7 @@ function drawEgo(t){
   ctx.font = `19px ${FM}`; ctx.textAlign = 'left'; ctx.fillStyle = '#8a7aa8';
   if (ego){ ctx.fillText('k', 18, h-15); ctx.fillStyle = '#fff'; ctx.fillText(String(targetNode.degree), 36, h-15);
     ctx.fillStyle = '#8a7aa8'; ctx.fillText('C', 96, h-15); ctx.fillStyle = '#fff'; ctx.fillText(ego.cc.toFixed(2), 116, h-15);
-    ctx.textAlign = 'right'; const sq = seqMark[targetNode.id]; ctx.fillStyle = sq ? '#fff' : SECT[targetNode.ci].css; ctx.fillText(sq ? 'SEQUENCED' : SECT[targetNode.ci].label, w-18, h-15); }
+    ctx.textAlign = 'right'; const sq = seqMark[targetNode.id], mp = mapped.has(targetNode.id); ctx.fillStyle = sq ? '#a7a7af' : SECT[targetNode.ci].css; ctx.fillText(sq ? 'SEQUENCED' : mp ? 'MAPPED' : SECT[targetNode.ci].label, w-18, h-15); }
   else ctx.fillText('FLY CLOSER TO LOCK A NODE', 18, h-15);
   finish(p);
 }
@@ -1420,13 +1426,14 @@ function updateLock(){
 let holo = null;
 const LAYOUTS = ['SPATIAL','SECTOR SHELLS','DEGREE SECTORS','SPHERE BANDS'];
 const WOB = `vec3 wob(float s){ float w = sin(uTime*1.2 + s*6.283)*uWob; return vec3(w, cos(uTime + s*4.4)*uWob, -w); }`;
-const HOLO_PT_VS = `attribute vec3 aPosA; attribute vec3 aPosB; attribute vec3 aColor; attribute float aSize; attribute float aSeed; attribute float aFlash; attribute float aSeq;
+const HOLO_PT_VS = `attribute vec3 aPosA; attribute vec3 aPosB; attribute vec3 aColor; attribute float aSize; attribute float aSeed; attribute float aFlash; attribute float aMapped;
   uniform float uK; uniform float uTime; uniform float uScale; uniform float uWob; varying vec3 vC; varying float vF; ${WOB}
   void main(){ vec3 p = mix(aPosA, aPosB, uK) + wob(aSeed);
     vec4 mv = modelViewMatrix*vec4(p,1.); float tw = .78 + .22*sin(uTime*1.7 + aSeed*50.);
     gl_PointSize = clamp(aSize*uScale*tw/-mv.z, 0., 64.); gl_Position = projectionMatrix*mv;
-    float m = max(exp(-3.9*max(0., uTime - aFlash)), aSeq*.55);
-    vC = mix(aColor*(.42 + .22*sin(uTime*2. + aSeed*40.)), vec3(1.), m*.8); vF = 0.; }`;
+    float flash = exp(-3.9*max(0., uTime - aFlash));
+    vec3 c = mix(aColor, vec3(.32,.32,.36), aMapped);
+    vC = mix(c*(.42 + .22*sin(uTime*2. + aSeed*40.)), vec3(1.), flash*.8); vF = 0.; }`;
 const HOLO_LN_VS = `attribute vec3 aPosA; attribute vec3 aPosB; attribute vec3 aColor; attribute float aSeed; attribute float aBirth; attribute float aCross;
   uniform float uK; uniform float uTime; uniform float uWob; varying vec3 vC; ${WOB}
   void main(){ vec3 p = mix(aPosA, aPosB, uK) + wob(aSeed); gl_Position = projectionMatrix*modelViewMatrix*vec4(p,1.);
@@ -1449,14 +1456,14 @@ function setupHolo(){
     const a = n.ci*Math.PI/3 + n.r1*Math.PI/3*.84, rad = .28 + n.r2*.72; L[2].set([Math.cos(a)*rad, clamp((n.degree - meanK)*.07, -.8, .8), Math.sin(a)*rad], i*3);
     const g = fib(rank[i], NS); L[3].set([g[0]*.9, g[1]*.9, g[2]*.9], i*3);
   });
-  const col = new Float32Array(NS*3), size = new Float32Array(NS), seed = new Float32Array(NS), flash = new Float32Array(NS).fill(-100), seqA = new Float32Array(NS);
-  sample.forEach((n,i) => { size[i] = .0026*(1 + Math.sqrt(n.degree)*.3); seed[i] = n.r1; col.set([n.base.r, n.base.g, n.base.b], i*3); seqA[i] = seqMark[n.id]; });
+  const col = new Float32Array(NS*3), size = new Float32Array(NS), seed = new Float32Array(NS), flash = new Float32Array(NS).fill(-100), mappedA = new Float32Array(NS);
+  sample.forEach((n,i) => { size[i] = .0026*(1 + Math.sqrt(n.degree)*.3); seed[i] = n.r1; col.set([n.base.r, n.base.g, n.base.b], i*3); mappedA[i] = mapped.has(n.id) ? 1 : 0; });
   const dyn = (arr, n) => new THREE.BufferAttribute(arr, n).setUsage(THREE.DynamicDrawUsage);
   const pg = new THREE.BufferGeometry();
   pg.setAttribute('position', new THREE.BufferAttribute(L[0], 3));   // bounding only; the shader positions from aPosA/aPosB
   pg.setAttribute('aPosA', dyn(new Float32Array(L[0]), 3)); pg.setAttribute('aPosB', dyn(new Float32Array(L[1]), 3));
   pg.setAttribute('aColor', new THREE.BufferAttribute(col,3)); pg.setAttribute('aSize', new THREE.BufferAttribute(size,1)); pg.setAttribute('aSeed', new THREE.BufferAttribute(seed,1));
-  pg.setAttribute('aFlash', dyn(flash,1)); pg.setAttribute('aSeq', dyn(seqA,1));
+  pg.setAttribute('aFlash', dyn(flash,1)); pg.setAttribute('aMapped', dyn(mappedA,1));
   const uK = { value:0 }, uWob = { value:reduceMotion ? 0 : .01 };
   const pmat = new THREE.ShaderMaterial({ uniforms:{ uTime:uniformsShared.uTime, uScale:{ value:900 }, uGain:{ value:.38 }, uK, uWob }, vertexShader:HOLO_PT_VS, fragmentShader:NODE_FS, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending });
   pointMats.push(pmat);
@@ -1488,10 +1495,9 @@ function setupHolo(){
   const label = new THREE.Mesh(new THREE.PlaneGeometry(.2, .025), new THREE.MeshBasicMaterial({ map:lbl.tex, transparent:true, depthWrite:false, toneMapped:false }));
   label.position.set(0, -.16, .16); holoRoot.add(label);
   const setLayout = i => { idx = i; pg.attributes.aPosA.array.set(L[i]); pg.attributes.aPosB.array.set(L[(i+1)%4]); pg.attributes.aPosA.needsUpdate = pg.attributes.aPosB.needsUpdate = true; for (let s=0;s<E;s++) writeEdgeVerts(s); };
-  holo = { group, sample, NS, pg, eg, E, rewire, setLayout, get idx(){ return idx; }, uK, shipM, tgtM, base, lbl, seq:pg.attributes.aSeq, lastShown:-1, WS };
+  holo = { group, sample, NS, pg, eg, E, rewire, setLayout, get idx(){ return idx; }, uK, shipM, tgtM, base, lbl, mapped:pg.attributes.aMapped, lastShown:-1, WS };
 }
 const ease = x => x < .5 ? 4*x*x*x : 1 - Math.pow(-2*x+2, 3)/2;
-const WHITE = new THREE.Color(1,1,1);
 function updateHolo(t, dt){
   const H = holo, HOLD = 8, TR = 3, per = HOLD + TR, cyc = t/per, idx = Math.floor(cyc) % 4, ph = (cyc % 1)*per, k = ph < HOLD ? 0 : ease((ph-HOLD)/TR);
   if (idx !== H.idx) H.setLayout(idx);
@@ -1552,13 +1558,14 @@ function start(data){
   setupLock();
   [0,1].forEach(i => { const c = renderer.xr.getController(i); c.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0,0,-.25)]), new THREE.LineBasicMaterial({ color:0xff2e88 }))); rig.add(c); });
   if (data.score) score = data.score;
+  if (Array.isArray(data.mapped)) data.mapped.forEach(id => nodes[id] && markMapped(nodes[id]));
   if (Array.isArray(data.sequenced)) data.sequenced.forEach(id => nodes[id] && markSequenced(nodes[id], false));
   objective = data.objective || null; if (!objective) newObjective();
   for (let i=0;i<(data.drones|0);i++) spawnDrone();
   if (data.pos) ship.position.fromArray(data.pos);
   if (data.quat) ship.quaternion.fromArray(data.quat);
   const hot = window.claude?.hot;
-  const snap = () => ({ score, sequenced:[...sequenced], objective, drones:drones.length, pos:ship.position.toArray(), quat:ship.quaternion.toArray(), launched });
+  const snap = () => ({ score, mapped:[...mapped], sequenced:[...sequenced], objective, drones:drones.length, pos:ship.position.toArray(), quat:ship.quaternion.toArray(), launched });
   window.__ppiSnapshot = snap; window.__ppiInXR = () => inXR;
   if (hot && typeof hot.snapshot === 'function') hot.snapshot(snap);
   log(`LINK UP · ${N.toLocaleString('en-US')} PROTEINS · ${edgeCount.toLocaleString('en-US')} INTERACTIONS`);
