@@ -61,10 +61,23 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
   .touch button.b{border-color:var(--cyan);background:rgba(0,229,255,.15)}
   #help{display:none}
 }
+#hud{position:fixed;z-index:14;top:max(16px,env(safe-area-inset-top,0px));left:max(16px,env(safe-area-inset-left,0px));pointer-events:none;font-family:var(--f-disp);min-width:220px}
+#hud .lv{font-size:13px;letter-spacing:.3em;color:var(--cyan)}
+#hud .pc{font-size:54px;font-weight:700;line-height:1.05;color:#fff;text-shadow:0 0 14px var(--pink)}
+#hud .tg{font-size:12px;letter-spacing:.2em;color:var(--dim)}
+#hud .track{position:relative;height:14px;margin-top:6px;background:rgba(166,107,255,.2);border:1px solid rgba(166,107,255,.45)}
+#hud .track i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--pink));box-shadow:0 0 10px var(--pink)}
+#hud .track b{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--sun)}
+#lvl{position:fixed;inset:0;z-index:25;display:none;place-items:center;text-align:center;background:rgba(7,1,15,.82);font-family:var(--f-wide);cursor:pointer}
+#lvl.on{display:grid}
+#lvl h2{margin:0;font-size:clamp(34px,9vw,96px);letter-spacing:.08em;color:#fff;text-shadow:0 0 28px var(--pink)}
+#lvl p{font-family:var(--f-disp);font-size:clamp(14px,2.4vw,22px);letter-spacing:.2em;color:var(--cyan)}
 </style>
 
 <div id="stage"></div>
 <div id="grain"></div>
+<div id="hud"><div class="lv" id="hud-lv"></div><div class="pc" id="hud-pc">0.0%</div><div class="tg" id="hud-tg"></div><div class="track"><i id="hud-bar"></i><b id="hud-tick"></b></div></div>
+<div id="lvl"><div><h2 id="lvl-h"></h2><p id="lvl-p"></p></div></div>
 <div id="splash">
   <div class="card">
     <div class="kicker">LBI NETMED · DATASPACE RECON</div>
@@ -182,7 +195,10 @@ const RANKS = [[0,'CADET'],[800,'PILOT'],[2500,'NAVIGATOR'],[6000,'CARTOGRAPHER'
 const N = 16000, CELL = 28, MODS = 12;
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-const srand = mulberry32(20261021);
+const LEVEL_TARGETS = [0.8, 0.9, 1.0];
+const GAME = (() => { let g = null; try { g = JSON.parse(sessionStorage.getItem('ppi-game')); } catch (e) {}
+  return g && g.level >= 1 && g.level <= 3 ? g : { level:1, seed:20261021, score:0, launched:false }; })();
+const srand = mulberry32(GAME.seed);
 const gauss = () => { let u = 0, v = 0; while (!u) u = srand(); while (!v) v = srand(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
 const rgba = (hex,a) => `rgba(${hex>>16&255},${hex>>8&255},${hex&255},${a})`;
 
@@ -634,6 +650,7 @@ function markMapped(n){
   n.disp.setRGB(.6,.6,.64);
   if (nodesGeo){ const ca = nodesGeo.attributes.aColor; ca.setXYZ(n.id, n.disp.r, n.disp.g, n.disp.b); ca.needsUpdate = true; }
   if (holo && n.id % 8 === 0){ holo.mapped.setX(n.id/8, 1); holo.mapped.needsUpdate = true; }
+  const h = activeHolos.get(n.id); if (h) greyHolo(h);
   return true;
 }
 
@@ -821,9 +838,15 @@ function spawnHolo(n){
     else bondMesh.setMatrixAt(idx, ZERO_M); }
   _dum.quaternion.identity();
   upd.aLo = Math.min(upd.aLo, s*ATOMS); upd.aHi = Math.max(upd.aHi, s*ATOMS + ATOMS - 1); upd.bLo = Math.min(upd.bLo, s*BONDS); upd.bHi = Math.max(upd.bHi, s*BONDS + BONDS - 1);
-  const scale = .8 + Math.random()*.9, h = { slot:s, target:1, op:0, scale, radius:scale*2.5, off:new THREE.Vector3(), vel:new THREE.Vector3(), rx:Math.random()*6, ry:Math.random()*6 };
+  const scale = .8 + Math.random()*.9, h = { slot:s, count, target:1, op:0, scale, radius:scale*2.5, off:new THREE.Vector3(), vel:new THREE.Vector3(), rx:Math.random()*6, ry:Math.random()*6 };
   holoU.uHP.value.set([n.position.x, n.position.y, n.position.z, scale], s*4); holoU.uHQ.value.set([0,0,0,1], s*4); holoU.uHF.value[s] = 0;
   activeHolos.set(n.id, h); return h;
+}
+function greyHolo(h){
+  const s = h.slot, g = new THREE.Color();
+  for (let i=0;i<h.count;i++){ const l = .45 + Math.random()*.3; atomMesh.setColorAt(s*ATOMS + i, g.setRGB(l, l, l*1.03)); }
+  _c.setRGB(.6,.6,.64); for (let i=0;i<h.count-1;i++) bondMesh.setColorAt(s*BONDS + i, _c);
+  upd.aLo = Math.min(upd.aLo, s*ATOMS); upd.aHi = Math.max(upd.aHi, s*ATOMS + ATOMS - 1); upd.bLo = Math.min(upd.bLo, s*BONDS); upd.bHi = Math.max(upd.bHi, s*BONDS + BONDS - 1);
 }
 function flushHoloBuffers(){
   const push = (attr, lo, hi, stride) => { attr.updateRange.offset = lo*stride; attr.updateRange.count = (hi-lo+1)*stride; attr.needsUpdate = true; };
@@ -1358,15 +1381,19 @@ function drawComms(force){
   finish(p);
 }
 function drawMission(){
-  const sig = `${score}|${drones.length}|${sequenced.size}|${mapped.size}|${objective ? objective.ci + ':' + objective.have + ':' + objective.need + objective.type : ''}`;
+  const sig = `${GAME.level}|${score}|${drones.length}|${sequenced.size}|${mapped.size}|${objective ? objective.ci + ':' + objective.have + ':' + objective.need + objective.type : ''}`;
   if (sig === missionSig) return; missionSig = sig;
   const p = screens.mission, { ctx, w, h } = p; bg(p);
   let rk = RANKS[0][1]; RANKS.forEach(([s,n]) => { if (score >= s) rk = n; });
-  const top = header(p, 'MISSION', rk, '#ffb347');
+  const top = header(p, `MISSION · LEVEL ${GAME.level}`, rk, '#ffb347');
   ctx.textAlign = 'left'; ctx.font = `17px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('SCORE', 18, top + 20);
   ctx.font = `700 56px ${FD}`; ctx.fillStyle = '#fff'; ctx.shadowColor = '#ff2e88'; ctx.shadowBlur = 14; ctx.fillText(score.toLocaleString('en-US'), 18, top + 74); ctx.shadowBlur = 0;
-  ctx.font = `18px ${FM}`; ctx.fillStyle = '#a7a7af'; ctx.fillText(`${(mapped.size/N*100).toFixed(1)}% VISITED`, 18, top + 98);
-  ctx.font = `20px ${FM}`; ctx.fillStyle = '#00e5ff'; ctx.fillText(`DRONES ${drones.length}`, 18, top + 124);
+  const fr = mapped.size/N, tg = LEVEL_TARGETS[GAME.level-1];
+  ctx.font = `700 46px ${FD}`; ctx.fillStyle = '#fff'; ctx.fillText(`${(fr*100).toFixed(1)}%`, 18, top + 130);
+  ctx.font = `15px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText(`VISITED · TARGET ${Math.round(tg*100)}%`, 18, top + 150);
+  ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(18, top + 160, 262, 16);
+  const bg2 = ctx.createLinearGradient(18,0,280,0); bg2.addColorStop(0,'#00e5ff'); bg2.addColorStop(1,'#ff2e88'); ctx.fillStyle = bg2; ctx.fillRect(18, top + 160, 262*Math.min(1, fr/tg), 16);
+  ctx.font = `20px ${FM}`; ctx.fillStyle = '#00e5ff'; ctx.fillText(`DRONES ${drones.length}`, 18, h - 56);
   if (objective){ const s = SECT[objective.ci];
     ctx.font = `24px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('OBJECTIVE', 300, top + 20);
     ctx.font = `700 38px ${FD}`; ctx.fillStyle = s.css; ctx.fillText(`${objective.type === 'deploy' ? 'DEPLOY' : 'SEQUENCE'} ${objective.type === 'deploy' ? objective.need + ' WALKS' : objective.need}`, 300, top + 62, 402);
@@ -1558,6 +1585,7 @@ function start(data){
   setupHolo();
   setupLock();
   [0,1].forEach(i => { const c = renderer.xr.getController(i); c.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0,0,-.25)]), new THREE.LineBasicMaterial({ color:0xff2e88 }))); rig.add(c); });
+  if (!data.mapped && GAME.launched){ data.launched = true; data.score = GAME.score; }
   if (data.score) score = data.score;
   if (Array.isArray(data.mapped)) data.mapped.forEach(id => nodes[id] && markMapped(nodes[id]));
   if (Array.isArray(data.sequenced)) data.sequenced.forEach(id => nodes[id] && markSequenced(nodes[id], false));
@@ -1576,6 +1604,27 @@ function start(data){
   renderer.setAnimationLoop(loop);
   setupVR();
   if (data.launched){ bootT = 1; launch(); }
+}
+
+let levelBusy = false;
+function updateHud(){
+  const fr = mapped.size/N, tg = LEVEL_TARGETS[GAME.level-1];
+  $('hud-lv').textContent = `LEVEL ${GAME.level} / 3`; $('hud-pc').textContent = (fr*100).toFixed(1) + '%';
+  $('hud-tg').textContent = `VISITED · TARGET ${Math.round(tg*100)}%`;
+  $('hud-bar').style.width = Math.min(100, fr/tg*100).toFixed(1) + '%'; $('hud-tick').style.left = '100%';
+  if (!levelBusy && fr >= tg - 1e-9) advanceLevel();
+}
+function advanceLevel(){
+  levelBusy = true;
+  const win = GAME.level >= 3, next = win ? 1 : GAME.level + 1;
+  $('lvl-h').textContent = win ? 'YOU WIN' : `LEVEL ${next}`;
+  $('lvl-p').textContent = win ? 'NETWORK FULLY MAPPED · CLICK TO PLAY AGAIN' : `NEW NETWORK · EXPLORE ${Math.round(LEVEL_TARGETS[next-1]*100)}% · CLICK TO CONTINUE`;
+  $('lvl').classList.add('on');
+  let done = false;
+  const go = () => { if (done) return; done = true;
+    try { sessionStorage.setItem('ppi-game', JSON.stringify({ level:next, seed:(Math.random()*4294967295)>>>0, score:win ? 0 : score, launched:true })); sessionStorage.removeItem('ppi-hot'); } catch (e) {}
+    location.reload(); };
+  $('lvl').onclick = go; setTimeout(go, win ? 8000 : 4000);
 }
 
 function launch(){
@@ -1684,6 +1733,7 @@ function loop(){
   if (frame % (6*s) === 0) drawFlux();
   if (frame % (4*s) === 3) drawComms(frame < 10);
   if (frame % (6*s) === 5) drawMission();
+  if (frame % 10 === 4 && launched) updateHud();
   if (frame % 2 === 0) drawCompass(frame < 10);
   if (frame % 30 === 7) computeMotifs();
   if (composer && bloomOn && !renderer.xr.isPresenting) composer.render(); else renderer.render(scene, camera);
