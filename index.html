@@ -857,14 +857,14 @@ function updateHolograms(dt){
   atomMesh.count = (top+1)*ATOMS; bondMesh.count = (top+1)*BONDS;   // only the slots in use reach the GPU
   flushHoloBuffers();
 }
-function markSequenced(n, live){
+function markSequenced(n, live, dronePos, droneCount){
   if (sequenced.has(n.id)) return;
   sequenced.add(n.id); seqMark[n.id] = 1; seqCnt[n.ci]++; markMapped(n);
   n.disp.copy(n.base).lerp(WHITE, .6);
   const ca = nodesGeo.attributes.aColor; ca.setXYZ(n.id, n.disp.r, n.disp.g, n.disp.b); ca.needsUpdate = true;
   if (holo && n.id % 8 === 0){ holo.seq.setX(n.id/8, 1); holo.seq.needsUpdate = true; }
   if (!live) return;
-  SFX.bleep('done');
+  SFX.bleep('done', dronePos, droneCount);
   let pts = 100 + n.degree*8; activity[n.ci] += 6;
   if (objective && objective.type !== 'deploy' && n.ci === objective.ci){ pts += 150; objective.have++;
     if (objective.have >= objective.need) completeObjective(); }
@@ -945,7 +945,7 @@ function updateDrones(dt){
       const a = d.beam.geometry.attributes.position; a.setXYZ(0, d.m.position.x, d.m.position.y, d.m.position.z); a.setXYZ(1, d.node.position.x, d.node.position.y, d.node.position.z); a.needsUpdate = true;
       if (d.m.position.distanceToSquared(d.node.position) < 100) d.prog += dt/2.2;
       else d.prog = Math.max(0, d.prog - dt);
-      if (d.prog >= 1){ const n = d.node; d.node = null; d.prog = 0; takenBy[n.id] = 0; markSequenced(n, true); }
+      if (d.prog >= 1){ const n = d.node; d.node = null; d.prog = 0; takenBy[n.id] = 0; markSequenced(n, true, d.m.position, drones.length); }
     }
   }
 }
@@ -1068,15 +1068,14 @@ const SFX = (() => {
       const m = SCALE[(step*3 + Math.floor(rnd(0,3))) % SCALE.length] + 12 + (newNode ? 12 : 0), dec = newNode ? 2.2 : .9, d = pos ? spatial(pos, dec+.3, newNode ? .9 : .6) : null;
       tone('sine', mtof(m), mtof(m), now, .03, dec, newNode ? .16 : .08, d, rnd(-6,6));
       if (newNode){ tone('triangle', mtof(m+7), mtof(m+7), now+.07, .03, 1.4, .06, d); tone('sine', mtof(m-12), mtof(m-12)*1.5, now, .03, .8, .08, d); } },
-    bleep(kind){ if (!ok()) return; const t = ac.currentTime;
+    bleep(kind, pos, droneCount){ if (!ok()) return; const t = ac.currentTime, dest = pos ? spatial(pos, .7, .12) : kind === 'done' ? sequenceBus : sfxBus, level = droneCount ? 1/droneCount : 1;
       const seq = kind === 'done' ? [880, 1320, 1760, 2637] : kind === 'lock' ? [1568, 1568] : [1760, 1175];
-      const dest = kind === 'done' ? sequenceBus : sfxBus;
-      seq.forEach((f,i) => tone('square', f, f, t+i*.07, .002, .05, .035, dest));
+      seq.forEach((f,i) => tone('square', f, f, t+i*.07, .002, .05, .035*level, dest));
       if (kind === 'done'){
         const n = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
         n.buffer = noiseBuf(.7); f.type = 'bandpass'; f.Q.value = .8;
         f.frequency.setValueAtTime(3600, t); f.frequency.exponentialRampToValueAtTime(520, t+.38);
-        env(g, t, .008, .12, .42); n.connect(f); f.connect(g); g.connect(sequenceBus); n.start(t); n.stop(t+.7);
+        env(g, t, .008, .12*level, .42); n.connect(f); f.connect(g); g.connect(dest); n.start(t); n.stop(t+.7);
       } },
     chatter(){ if (!ok()) return; const t = ac.currentTime, n = 2 + Math.floor(Math.random()*3);
       for (let i=0;i<n;i++) tone('square', 700 + Math.floor(rnd(0,8))*180, 700 + Math.floor(rnd(0,8))*180, t+i*.06, .002, .035, .02); },
