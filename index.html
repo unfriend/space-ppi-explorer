@@ -1693,7 +1693,7 @@ function bindInput(){
       case 'KeyB': bloomOn = !bloomOn; log(bloomOn ? 'BLOOM ON' : 'BLOOM OFF'); break;
     }
   });
-  addEventListener('keyup', e => { switch (e.code){ case 'KeyW': keys.w = false; break; case 'KeyS': keys.s = false; break; case 'ArrowLeft': case 'KeyJ': keys.rl = false; break; case 'ArrowRight': case 'KeyL': keys.rr = false; break; case 'ArrowUp': case 'KeyI': keys.pu = false; break; case 'ArrowDown': case 'KeyK': keys.pd = false; break; case 'KeyA': keys.a = false; break; case 'KeyD': keys.d = false; break; case 'KeyQ': keys.q = false; break; case 'KeyE': keys.e = false; break; case 'ShiftLeft': case 'ShiftRight': keys.shift = false; break; } });
+  addEventListener('keyup', e => { switch (e.code){ case 'KeyW': keys.w = false; break; case 'KeyS': keys.s = false; break; case 'ArrowLeft': case 'KeyJ': keys.rl = false; break; case 'ArrowRight': case 'KeyL': keys.rr = false; break; case 'ArrowUp': case 'KeyI': keys.pd = false; break; case 'ArrowDown': case 'KeyK': keys.pu = false; break; case 'KeyA': keys.a = false; break; case 'KeyD': keys.d = false; break; case 'KeyQ': keys.q = false; break; case 'KeyE': keys.e = false; break; case 'ShiftLeft': case 'ShiftRight': keys.shift = false; break; } });
   $('btn-launch').addEventListener('click', launch);
   $('ap-btn').addEventListener('click', () => {
     apLock = !apLock;
