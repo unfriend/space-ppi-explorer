@@ -879,7 +879,7 @@ function completeObjective(){
 }
 // ---------------------------------------------------------------- sequencing drones (one earned per completed objective)
 const drones = [], DRONE_R = 9, DRONE_LEAD = 32, DRONE_MAX = 24;
-const DRONE_WALK_MIN = 7, DRONE_WALK_MAX = 16;
+const DRONE_WALK_MIN = 49, DRONE_WALK_MAX = 99;
 const nextDroneWalk = () => DRONE_WALK_MIN + Math.random()*(DRONE_WALK_MAX-DRONE_WALK_MIN);
 const randomConnectedNode = () => connectedNodes[Math.floor(Math.random()*connectedNodes.length)] || null;
 const droneGeo = new THREE.OctahedronGeometry(.7, 0);
