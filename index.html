@@ -52,6 +52,9 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 #help.off{opacity:0}
 .touch{display:none}
 #ap-btn{position:fixed;z-index:17;top:max(16px,env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));font-family:var(--f-disp);font-weight:700;font-size:12px;letter-spacing:.25em;padding:10px 16px;color:#fff;cursor:pointer;background:rgba(7,1,15,.6);border:1px solid var(--cyan)}
+#mouse-btn{position:fixed;z-index:17;top:calc(max(16px,env(safe-area-inset-top,0px)) + 46px);right:max(16px,env(safe-area-inset-right,0px));font-family:var(--f-disp);font-weight:700;font-size:12px;letter-spacing:.25em;padding:10px 16px;color:#fff;cursor:pointer;background:rgba(7,1,15,.6);border:1px solid var(--cyan)}
+#mouse-btn[aria-pressed="true"]{background:rgba(0,229,255,.3)}
+#mouse-btn:focus-visible{outline:2px solid #fff;outline-offset:3px}
 #ap-btn[aria-pressed="true"]{background:rgba(0,229,255,.3);box-shadow:0 0 18px rgba(0,229,255,.5)}
 #ap-btn:focus-visible{outline:2px solid #fff;outline-offset:3px}
 .touch button:disabled{opacity:.35}
@@ -90,14 +93,15 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
     </div>
     <p class="vrnote" id="vr-note">Checking for a VR headset…</p>
     <div class="keys">
-      <div><b>MOUSE</b>steer</div><div><b>W / S</b>thrust · brake</div><div><b>A / D</b>yaw</div><div><b>Q / E</b>pitch</div><div><b>SHIFT</b>overdrive</div>
+      <div><b>MOUSE</b>steer</div><div><b>W / S</b>thrust · brake</div><div><b>A / D</b>strafe</div><div><b>Q / E</b>yaw</div><div><b>J L / ◀ ▶</b>roll</div><div><b>I K / ▲ ▼</b>pitch</div><div><b>SHIFT</b>overdrive</div>
       <div><b>SPACE / CLICK</b>fire tracer</div><div><b>H</b>help</div><div><b>B</b>bloom on / off</div><div><b>M</b>mute</div>
     </div>
   </div>
 </div>
 
-<div id="help" class="off"><b>MOUSE</b> steer · <b>W/S</b> thrust · <b>A/D</b> yaw · <b>Q/E</b> pitch · <b>SHIFT</b> overdrive · <b>SPACE</b> tracer · <b>B</b> bloom · <b>M</b> mute · <b>H</b> hide<br>VR: right stick steer · left trigger thrust · grip overdrive · right trigger fire</div>
+<div id="help" class="off"><b>MOUSE</b> steer · <b>W/S</b> thrust · <b>A/D</b> strafe · <b>Q/E</b> yaw · <b>J/L ◀▶</b> roll · <b>I/K ▲▼</b> pitch · <b>SHIFT</b> overdrive · <b>SPACE</b> tracer · <b>B</b> bloom · <b>M</b> mute · <b>H</b> hide<br>VR: right stick steer · left trigger thrust · grip overdrive · right trigger fire</div>
 <button id="ap-btn" type="button" aria-pressed="false">AUTOPILOT: OFF</button>
+<button id="mouse-btn" type="button" aria-pressed="false">MOUSE: ON</button>
 <div class="touch"><button class="b" id="t-boost" type="button">BOOST</button><button id="t-fire" type="button">FIRE</button></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -626,9 +630,10 @@ function mountScreen(key, az, w, h){
 // ================================================================ game state
 let speed = 0, targetSpeed = 0, energy = 100, gunSide = 1;
 const CRUISE = 26, BOOST = 70, REVERSE = -8, AP_CRUISE = 9;
-const keys = { w:false, s:false, a:false, d:false, q:false, e:false, shift:false };
+const keys = { w:false, s:false, a:false, d:false, q:false, e:false, rl:false, rr:false, pu:false, pd:false, shift:false };
 const ptr = { x:VW/2, y:VH*.36, touchThrust:false, mouse:matchMedia('(pointer:fine)').matches };
 const yawPitch = new THREE.Vector2(), turnVel = new THREE.Vector2();
+let strafeVel = 0, rollVel = 0, mouseOff = false;
 let lastInput = performance.now(), launched = false, inXR = false, apLock = false;
 let autopilot = true, apTarget = null, apState = 'cruising', apTimer = performance.now() + 8000, bank = 0;
 let targetNode = null, scanNode = null, scanProg = 0;
@@ -685,12 +690,15 @@ function updateFlight(dt){
     }
   } else {
     if (inXR){ inYaw = yawPitch.x; inPitch = yawPitch.y; }
-    else if (ptr.touchThrust || ptr.mouse){
+    else if (ptr.touchThrust || (ptr.mouse && !mouseOff)){
       inYaw = dzone(clamp((ptr.x - VW/2)/(VW*.42), -1, 1)); inPitch = dzone(clamp((VH*.36 - ptr.y)/(VH*.64), -1, 1));
     }
-    inYaw = clamp(inYaw + Number(keys.d) - Number(keys.a), -1, 1);
-    inPitch = clamp(inPitch + Number(keys.e) - Number(keys.q), -1, 1);
-    if (keys.a || keys.d || keys.q || keys.e) lastInput = now;
+    inYaw = clamp(inYaw + Number(keys.e) - Number(keys.q), -1, 1);
+    inPitch = clamp(inPitch + Number(keys.pu) - Number(keys.pd), -1, 1);
+    const inRoll = Number(keys.rr) - Number(keys.rl), inStrafe = Number(keys.d) - Number(keys.a);
+    if (keys.a || keys.d || keys.q || keys.e || keys.rl || keys.rr || keys.pu || keys.pd) lastInput = now;
+    rollVel = lerp(rollVel, inRoll*1.1, damp(1.6, dt)); strafeVel = lerp(strafeVel, inStrafe*14, damp(2, dt));
+    ship.rotateZ(-rollVel*dt); ship.translateX(strafeVel*dt);
     // inertia: turn rates ease toward the stick instead of snapping
     turnVel.x = lerp(turnVel.x, -inYaw*.55, damp(1.6, dt));
     turnVel.y = lerp(turnVel.y, inPitch*.42, damp(1.6, dt));
@@ -702,7 +710,7 @@ function updateFlight(dt){
     bank = lerp(bank, clamp(turnVel.x*.45, -.22, .22), damp(1.5, dt));
   }
   if (!((keys.shift || xrBoost) && (keys.w || ptr.touchThrust || xrThrust))) energy = Math.min(100, energy + 7*dt);
-  _v.set(1,0,0).applyQuaternion(ship.quaternion); ship.rotateZ(-_v.y*damp(.8, dt));   // gentle auto-level
+  _v.set(1,0,0).applyQuaternion(ship.quaternion); if (!keys.rl && !keys.rr) ship.rotateZ(-_v.y*damp(.8, dt));   // gentle auto-level
   speed = lerp(speed, targetSpeed, damp(.7, dt));
   ship.translateZ(-speed*dt);
   rig.rotation.z = inXR || reduceMotion ? 0 : bank;
@@ -1653,14 +1661,14 @@ function setupVR(){
 function bindInput(){
   addEventListener('pointermove', e => {
     if (apLock) return;
-    if (e.pointerType === 'mouse'){ ptr.mouse = true; ptr.x = e.clientX; ptr.y = e.clientY; poke(); }
+    if (e.pointerType === 'mouse'){ if (mouseOff) return; ptr.mouse = true; ptr.x = e.clientX; ptr.y = e.clientY; poke(); }
     else { ptr.x = e.clientX; ptr.y = e.clientY; }
   });
   addEventListener('pointerleave', e => { if (e.pointerType === 'mouse'){ ptr.x = VW/2; ptr.y = VH*.36; } });
   addEventListener('pointerdown', e => {
     if (!launched || apLock || e.target.closest('button')) return;
     SFX.start(); poke();
-    if (e.pointerType === 'mouse'){ ptr.mouse = true; ptr.x = e.clientX; ptr.y = e.clientY; fire(); } else { ptr.x = e.clientX; ptr.y = e.clientY; ptr.touchThrust = true; }
+    if (e.pointerType === 'mouse'){ if (!mouseOff){ ptr.mouse = true; ptr.x = e.clientX; ptr.y = e.clientY; } fire(); } else { ptr.x = e.clientX; ptr.y = e.clientY; ptr.touchThrust = true; }
   });
   addEventListener('pointerup', e => { if (e.pointerType !== 'mouse'){ ptr.touchThrust = false; ptr.x = VW/2; ptr.y = VH*.36; } });
   addEventListener('pointercancel', () => { ptr.touchThrust = false; });
@@ -1669,8 +1677,12 @@ function bindInput(){
     if (apLock) return;
     poke();
     switch (e.code){
-      case 'KeyW': case 'ArrowUp': keys.w = true; break;
-      case 'KeyS': case 'ArrowDown': keys.s = true; break;
+      case 'KeyW': keys.w = true; break;
+      case 'KeyS': keys.s = true; break;
+      case 'ArrowLeft': case 'KeyJ': keys.rl = true; e.preventDefault(); break;
+      case 'ArrowRight': case 'KeyL': keys.rr = true; e.preventDefault(); break;
+      case 'ArrowUp': case 'KeyI': keys.pu = true; e.preventDefault(); break;
+      case 'ArrowDown': case 'KeyK': keys.pd = true; e.preventDefault(); break;
       case 'KeyA': keys.a = true; break;
       case 'KeyD': keys.d = true; break;
       case 'KeyQ': keys.q = true; break;
@@ -1681,7 +1693,7 @@ function bindInput(){
       case 'KeyB': bloomOn = !bloomOn; log(bloomOn ? 'BLOOM ON' : 'BLOOM OFF'); break;
     }
   });
-  addEventListener('keyup', e => { switch (e.code){ case 'KeyW': case 'ArrowUp': keys.w = false; break; case 'KeyS': case 'ArrowDown': keys.s = false; break; case 'KeyA': keys.a = false; break; case 'KeyD': keys.d = false; break; case 'KeyQ': keys.q = false; break; case 'KeyE': keys.e = false; break; case 'ShiftLeft': case 'ShiftRight': keys.shift = false; break; } });
+  addEventListener('keyup', e => { switch (e.code){ case 'KeyW': keys.w = false; break; case 'KeyS': keys.s = false; break; case 'ArrowLeft': case 'KeyJ': keys.rl = false; break; case 'ArrowRight': case 'KeyL': keys.rr = false; break; case 'ArrowUp': case 'KeyI': keys.pu = false; break; case 'ArrowDown': case 'KeyK': keys.pd = false; break; case 'KeyA': keys.a = false; break; case 'KeyD': keys.d = false; break; case 'KeyQ': keys.q = false; break; case 'KeyE': keys.e = false; break; case 'ShiftLeft': case 'ShiftRight': keys.shift = false; break; } });
   $('btn-launch').addEventListener('click', launch);
   $('ap-btn').addEventListener('click', () => {
     apLock = !apLock;
@@ -1692,6 +1704,10 @@ function bindInput(){
       ptr.touchThrust = false;
       if (launched && !autopilot){ autopilot = true; apTarget = null; apState = 'cruising'; apTimer = performance.now() + 3000; log('AUTOPILOT LOCKED'); }
     } else { lastInput = performance.now(); if (launched) log('CONTROLS RESTORED'); }
+  });
+  $('mouse-btn').addEventListener('click', e => {
+    mouseOff = !mouseOff; e.currentTarget.setAttribute('aria-pressed', mouseOff); e.currentTarget.textContent = 'MOUSE: ' + (mouseOff ? 'OFF' : 'ON');
+    ptr.x = VW/2; ptr.y = VH*.36; e.currentTarget.blur();
   });
   $('t-fire').addEventListener('pointerdown', e => { e.preventDefault(); if (apLock) return; poke(); fire(); });
   $('t-boost').addEventListener('pointerdown', e => { e.preventDefault(); if (apLock) return; poke(); keys.shift = true; ptr.touchThrust = true; });
