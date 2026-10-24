@@ -51,35 +51,64 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 #help b{color:var(--cyan);font-weight:400}
 #help.off{opacity:0}
 .touch{display:none}
+#ap-btn{position:fixed;z-index:17;top:max(16px,env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));font-family:var(--f-disp);font-weight:700;font-size:12px;letter-spacing:.25em;padding:10px 16px;color:#fff;cursor:pointer;background:rgba(7,1,15,.6);border:1px solid var(--cyan)}
+#mouse-btn{position:fixed;z-index:17;top:calc(max(16px,env(safe-area-inset-top,0px)) + 46px);right:max(16px,env(safe-area-inset-right,0px));font-family:var(--f-disp);font-weight:700;font-size:12px;letter-spacing:.25em;padding:10px 16px;color:#fff;cursor:pointer;background:rgba(7,1,15,.6);border:1px solid var(--cyan)}
+#mouse-btn[aria-pressed="true"]{background:rgba(0,229,255,.3)}
+#mouse-btn:focus-visible{outline:2px solid #fff;outline-offset:3px}
+#ap-btn[aria-pressed="true"]{background:rgba(0,229,255,.3);box-shadow:0 0 18px rgba(0,229,255,.5)}
+#ap-btn:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.touch button:disabled{opacity:.35}
 @media (pointer:coarse){
   .touch{display:flex;position:fixed;z-index:16;gap:10px;right:max(16px,env(safe-area-inset-right,0px));bottom:max(80px,calc(env(safe-area-inset-bottom,0px) + 80px))}
   .touch button{font-family:var(--f-disp);font-weight:700;font-size:12px;letter-spacing:.15em;color:#fff;width:66px;height:66px;border-radius:50%;background:rgba(255,46,136,.2);border:1px solid var(--pink)}
   .touch button.b{border-color:var(--cyan);background:rgba(0,229,255,.15)}
   #help{display:none}
 }
+#hud{position:fixed;z-index:14;top:max(16px,env(safe-area-inset-top,0px));left:max(16px,env(safe-area-inset-left,0px));pointer-events:none;font-family:var(--f-disp);min-width:220px}
+#hud .lv{font-size:13px;letter-spacing:.3em;color:var(--cyan)}
+#hud .pc{font-size:54px;font-weight:700;line-height:1.05;color:#fff;text-shadow:0 0 14px var(--pink)}
+#hud .tg{font-size:12px;letter-spacing:.2em;color:var(--dim)}
+#hud .track{position:relative;height:14px;margin-top:6px;background:rgba(166,107,255,.2);border:1px solid rgba(166,107,255,.45)}
+#hud .track i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--pink));box-shadow:0 0 10px var(--pink)}
+#hud .track b{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--sun)}
+#net{margin-top:8px;font-size:11px;letter-spacing:.2em;color:var(--dim);display:none}
+#net b{color:var(--cyan);font-weight:400}
+#mp{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;font-size:11px;letter-spacing:.14em;color:var(--dim)}
+#mp input{font:inherit;color:#fff;background:rgba(7,1,15,.7);border:1px solid rgba(166,107,255,.45);padding:7px 10px;width:14ch;text-transform:uppercase;letter-spacing:.14em}
+#mp button{font:inherit;color:var(--cyan);background:rgba(0,229,255,.1);border:1px solid var(--cyan);padding:7px 12px;cursor:pointer;letter-spacing:.14em}
+#mp button:focus-visible,#mp input:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#lvl{position:fixed;inset:0;z-index:25;display:none;place-items:center;text-align:center;background:rgba(7,1,15,.82);font-family:var(--f-wide);cursor:pointer}
+#lvl.on{display:grid}
+#lvl h2{margin:0;font-size:clamp(34px,9vw,96px);letter-spacing:.08em;color:#fff;text-shadow:0 0 28px var(--pink)}
+#lvl p{font-family:var(--f-disp);font-size:clamp(14px,2.4vw,22px);letter-spacing:.2em;color:var(--cyan)}
 </style>
 
 <div id="stage"></div>
 <div id="grain"></div>
+<div id="hud"><div class="lv" id="hud-lv"></div><div class="pc" id="hud-pc">0.0%</div><div class="tg" id="hud-tg"></div><div id="net"></div><div class="track"><i id="hud-bar"></i><b id="hud-tick"></b></div></div>
+<div id="lvl"><div><h2 id="lvl-h"></h2><p id="lvl-p"></p></div></div>
 <div id="splash">
   <div class="card">
     <div class="kicker">LBI NETMED · DATASPACE RECON</div>
     <h1>INTERACTOME<span>FLIGHT DECK</span></h1>
-    <p class="lede">Fly a slow recon craft through a 16,000-protein interaction network. Drift close to a node to sequence it, fire tracers to launch random walks, and complete sector-specific objectives from the cockpit.</p>
+    <p class="lede">Fly a slow recon craft through a 16,000-protein interaction network. Drift close to a node to sequence it, fire tracers to launch random walks, and map the network as visited nodes turn grey.</p>
     <div class="sync"><span id="sync-lbl">SYNCING DATASPACE</span><div class="bar"><i id="sync-bar"></i></div></div>
     <div class="btns">
       <button class="go" id="btn-launch" type="button" disabled>LAUNCH</button>
       <button class="go vr" id="btn-vr" type="button" disabled>ENTER VR</button>
     </div>
+    <div id="mp"><span id="mp-lbl">MULTIPLAYER</span><input id="mp-room" maxlength="24" placeholder="ROOM CODE" autocomplete="off" spellcheck="false" aria-label="Room code"><button id="mp-join" type="button">JOIN / CREATE</button><button id="mp-copy" type="button" hidden>COPY LINK</button><button id="mp-leave" type="button" hidden>LEAVE</button></div>
     <p class="vrnote" id="vr-note">Checking for a VR headset…</p>
     <div class="keys">
-      <div><b>MOUSE</b>steer</div><div><b>W / S</b>thrust · brake</div><div><b>A / D</b>yaw</div><div><b>Q / E</b>pitch</div><div><b>SHIFT</b>overdrive</div>
+      <div><b>MOUSE</b>steer</div><div><b>W / S</b>thrust · brake</div><div><b>Q / E</b>strafe</div><div><b>A / D</b>yaw</div><div><b>J L / ◀ ▶</b>roll</div><div><b>I K / ▲ ▼ / 2 3 / Z X</b>pitch</div><div><b>SHIFT</b>overdrive</div>
       <div><b>SPACE / CLICK</b>fire tracer</div><div><b>H</b>help</div><div><b>B</b>bloom on / off</div><div><b>M</b>mute</div>
     </div>
   </div>
 </div>
 
-<div id="help" class="off"><b>MOUSE</b> steer · <b>W/S</b> thrust · <b>A/D</b> yaw · <b>Q/E</b> pitch · <b>SHIFT</b> overdrive · <b>SPACE</b> tracer · <b>B</b> bloom · <b>M</b> mute · <b>H</b> hide<br>VR: right stick steer · left trigger thrust · grip overdrive · right trigger fire</div>
+<div id="help" class="off"><b>MOUSE</b> steer · <b>W/S</b> thrust · <b>Q/E</b> strafe · <b>A/D</b> yaw · <b>J/L ◀▶</b> roll · <b>I/K ▲▼</b> pitch · <b>SHIFT</b> overdrive · <b>SPACE</b> tracer · <b>B</b> bloom · <b>M</b> mute · <b>H</b> hide<br>VR: right stick steer · left trigger thrust · grip overdrive · right trigger fire</div>
+<button id="ap-btn" type="button" aria-pressed="false">AUTOPILOT: OFF</button>
+<button id="mouse-btn" type="button" aria-pressed="false">MOUSE: ON</button>
 <div class="touch"><button class="b" id="t-boost" type="button">BOOST</button><button id="t-fire" type="button">FIRE</button></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -89,6 +118,7 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 /* Hot update: poll for a new deploy, then reload in place carrying the flight state (score, drones, sequenced proteins, pose).
    Only if the new build fails to come up does the player get a manual button. */
@@ -177,7 +207,14 @@ const RANKS = [[0,'CADET'],[800,'PILOT'],[2500,'NAVIGATOR'],[6000,'CARTOGRAPHER'
 const N = 16000, CELL = 28, MODS = 12;
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-const srand = mulberry32(20261021);
+const LEVEL_TARGETS = [0.8, 0.9, 1.0];
+const ROOM = (location.hash.match(/room=([A-Za-z0-9_-]{1,24})/) || [])[1] || null;
+const roomSeed = lv => { let h = 5381; const s = ROOM + ':' + lv; for (let i=0;i<s.length;i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h >>> 0; };
+const GAME = (() => { let g = null; try { g = JSON.parse(sessionStorage.getItem('ppi-game')); } catch (e) {}
+  g = g && g.level >= 1 && g.level <= 3 ? g : { level:1, seed:20261021, score:0, launched:false };
+  if (ROOM) g.seed = roomSeed(g.level);   // everyone in a room flies the same network
+  return g; })();
+const srand = mulberry32(GAME.seed);
 const gauss = () => { let u = 0, v = 0; while (!u) u = srand(); while (!v) v = srand(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
 const rgba = (hex,a) => `rgba(${hex>>16&255},${hex>>8&255},${hex&255},${a})`;
 
@@ -610,14 +647,16 @@ function mountScreen(key, az, w, h){
 // ================================================================ game state
 let speed = 0, targetSpeed = 0, energy = 100, gunSide = 1;
 const CRUISE = 26, BOOST = 70, REVERSE = -8, AP_CRUISE = 9;
-const keys = { w:false, s:false, a:false, d:false, q:false, e:false, shift:false };
+const keys = { w:false, s:false, a:false, d:false, q:false, e:false, rl:false, rr:false, pu:false, pd:false, shift:false };
 const ptr = { x:VW/2, y:VH*.36, touchThrust:false, mouse:matchMedia('(pointer:fine)').matches };
 const yawPitch = new THREE.Vector2(), turnVel = new THREE.Vector2();
-let lastInput = performance.now(), launched = false, inXR = false;
+let strafeVel = 0, rollVel = 0, mouseOff = false;
+let lastInput = performance.now(), launched = false, inXR = false, apLock = false;
 let autopilot = true, apTarget = null, apState = 'cruising', apTimer = performance.now() + 8000, bank = 0;
 let targetNode = null, scanNode = null, scanProg = 0;
 const SCAN_R = 22;
 let score = 0, objective = null;
+const addScore = d => { score += d; Net.score(d); };
 const sequenced = new Set(), mapped = new Set(), activity = SECT.map(() => 0), mappedCnt = SECT.map(() => 0), seqCnt = SECT.map(() => 0);
 const activeHolos = new Map(), projectiles = [], walkers = [];
 const telemetry = { spd:[], wlk:[] };
@@ -628,7 +667,15 @@ let lockSprite, lockLabel, lockP, labelP;
 let xrThrust = false, xrBoost = false, xrBrake = false, xrFirePrev = false;
 
 function log(msg){ SFX.chatter(); const at = performance.now(); commsLog.push({ msg, at }); if (commsLog.length > 8) commsLog.shift(); commsAnimUntil = at + msg.length*22 + 300; }
-function markMapped(n){ if (mapped.has(n.id)) return false; mapped.add(n.id); mappedCnt[n.ci]++; return true; }
+function markMapped(n){
+  if (mapped.has(n.id)) return false;
+  mapped.add(n.id); mappedCnt[n.ci]++; Net.mapped(n.id);
+  n.disp.setRGB(.6,.6,.64);
+  if (nodesGeo){ const ca = nodesGeo.attributes.aColor; ca.setXYZ(n.id, n.disp.r, n.disp.g, n.disp.b); ca.needsUpdate = true; }
+  if (holo && n.id % 8 === 0){ holo.mapped.setX(n.id/8, 1); holo.mapped.needsUpdate = true; }
+  const h = activeHolos.get(n.id); if (h) greyHolo(h);
+  return true;
+}
 
 // ---------------------------------------------------------------- flight
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _e = new THREE.Euler();
@@ -661,12 +708,15 @@ function updateFlight(dt){
     }
   } else {
     if (inXR){ inYaw = yawPitch.x; inPitch = yawPitch.y; }
-    else if (ptr.touchThrust || ptr.mouse){
+    else if (ptr.touchThrust || (ptr.mouse && !mouseOff)){
       inYaw = dzone(clamp((ptr.x - VW/2)/(VW*.42), -1, 1)); inPitch = dzone(clamp((VH*.36 - ptr.y)/(VH*.64), -1, 1));
     }
     inYaw = clamp(inYaw + Number(keys.d) - Number(keys.a), -1, 1);
-    inPitch = clamp(inPitch + Number(keys.e) - Number(keys.q), -1, 1);
-    if (keys.a || keys.d || keys.q || keys.e) lastInput = now;
+    inPitch = clamp(inPitch + Number(keys.pu) - Number(keys.pd), -1, 1);
+    const inRoll = Number(keys.rr) - Number(keys.rl), inStrafe = Number(keys.e) - Number(keys.q);
+    if (keys.w || keys.s || keys.a || keys.d || keys.q || keys.e || keys.rl || keys.rr || keys.pu || keys.pd) lastInput = now;
+    rollVel = lerp(rollVel, inRoll*1.1, damp(1.6, dt)); strafeVel = lerp(strafeVel, inStrafe*14, damp(2, dt));
+    ship.rotateZ(-rollVel*dt); ship.translateX(strafeVel*dt);
     // inertia: turn rates ease toward the stick instead of snapping
     turnVel.x = lerp(turnVel.x, -inYaw*.55, damp(1.6, dt));
     turnVel.y = lerp(turnVel.y, inPitch*.42, damp(1.6, dt));
@@ -678,7 +728,7 @@ function updateFlight(dt){
     bank = lerp(bank, clamp(turnVel.x*.45, -.22, .22), damp(1.5, dt));
   }
   if (!((keys.shift || xrBoost) && (keys.w || ptr.touchThrust || xrThrust))) energy = Math.min(100, energy + 7*dt);
-  _v.set(1,0,0).applyQuaternion(ship.quaternion); ship.rotateZ(-_v.y*damp(.8, dt));   // gentle auto-level
+  _v.set(1,0,0).applyQuaternion(ship.quaternion); if (!keys.rl && !keys.rr) ship.rotateZ(-_v.y*damp(.8, dt));   // gentle auto-level
   speed = lerp(speed, targetSpeed, damp(.7, dt));
   ship.translateZ(-speed*dt);
   rig.rotation.z = inXR || reduceMotion ? 0 : bank;
@@ -687,6 +737,7 @@ function updateFlight(dt){
 // ---------------------------------------------------------------- XR input
 function pollXR(){
   xrThrust = xrBoost = xrBrake = false; yawPitch.set(0,0);
+  if (apLock) return;
   const s = renderer.xr.getSession(); if (!s) return;
   let any = false, fireNow = false;
   for (const src of s.inputSources){
@@ -711,6 +762,7 @@ function pollXR(){
 
 function poke(){
   lastInput = performance.now();
+  if (apLock) return;
   if (launched && autopilot){ autopilot = false; turnVel.set(0,0); log('MANUAL CONTROL'); }
 }
 
@@ -798,23 +850,29 @@ const _dum = new THREE.Object3D(), _up = new THREE.Vector3(0,1,0), _c = new THRE
 function spawnHolo(n){
   if (!freeSlots.length) return null;
   const s = freeSlots.pop(), hsl = {}; _c.set(n.colorHex).getHSL(hsl);
-  const pal = []; for (let k=0;k<5;k++) pal.push(new THREE.Color().setHSL((hsl.h + Math.random()*.16 - .08 + 1)%1, clamp(hsl.s + Math.random()*.3 - .15, .3, 1), clamp(hsl.l + Math.random()*.4 - .2, .25, .75)));
+  const grey = mapped.has(n.id), pal = []; for (let k=0;k<5;k++) pal.push(grey ? new THREE.Color().setHSL(0, 0, .45 + Math.random()*.3) : new THREE.Color().setHSL((hsl.h + Math.random()*.16 - .08 + 1)%1, clamp(hsl.s + Math.random()*.3 - .15, .3, 1), clamp(hsl.l + Math.random()*.4 - .2, .25, .75)));
   const count = 10 + Math.floor(Math.random()*30), cur = new THREE.Vector3(), pts = [];
   for (let i=0;i<ATOMS;i++){ const idx = s*ATOMS + i;
     if (i < count){ pts.push(cur.clone()); _dum.position.copy(cur); _dum.rotation.set(0,0,0); _dum.scale.setScalar(.15 + Math.random()*.5); _dum.updateMatrix();
       atomMesh.setMatrixAt(idx, _dum.matrix); atomMesh.setColorAt(idx, pal[Math.floor(Math.random()*5)]);
       const d = new THREE.Vector3(Math.random()-.5, Math.random()-.5, Math.random()-.5).normalize().multiplyScalar(.5 + Math.random()*1.6); d.addScaledVector(cur, -.15); cur.add(d); }
     else atomMesh.setMatrixAt(idx, ZERO_M); }
-  _c.set(n.colorHex);
+  grey ? _c.setRGB(.6,.6,.64) : _c.set(n.colorHex);
   for (let i=0;i<BONDS;i++){ const idx = s*BONDS + i;
     if (i < count-1){ const d = pts[i].distanceTo(pts[i+1]); _dum.position.copy(pts[i]).lerp(pts[i+1], .5); _dum.scale.set(.07, d, .07);
       _dum.quaternion.setFromUnitVectors(_up, _v.copy(pts[i+1]).sub(pts[i]).normalize()); _dum.updateMatrix(); bondMesh.setMatrixAt(idx, _dum.matrix); bondMesh.setColorAt(idx, _c); }
     else bondMesh.setMatrixAt(idx, ZERO_M); }
   _dum.quaternion.identity();
   upd.aLo = Math.min(upd.aLo, s*ATOMS); upd.aHi = Math.max(upd.aHi, s*ATOMS + ATOMS - 1); upd.bLo = Math.min(upd.bLo, s*BONDS); upd.bHi = Math.max(upd.bHi, s*BONDS + BONDS - 1);
-  const scale = .8 + Math.random()*.9, h = { slot:s, target:1, op:0, scale, radius:scale*2.5, off:new THREE.Vector3(), vel:new THREE.Vector3(), rx:Math.random()*6, ry:Math.random()*6 };
+  const scale = .8 + Math.random()*.9, h = { slot:s, count, target:1, op:0, scale, radius:scale*2.5, off:new THREE.Vector3(), vel:new THREE.Vector3(), rx:Math.random()*6, ry:Math.random()*6 };
   holoU.uHP.value.set([n.position.x, n.position.y, n.position.z, scale], s*4); holoU.uHQ.value.set([0,0,0,1], s*4); holoU.uHF.value[s] = 0;
   activeHolos.set(n.id, h); return h;
+}
+function greyHolo(h){
+  const s = h.slot, g = new THREE.Color();
+  for (let i=0;i<h.count;i++){ const l = .45 + Math.random()*.3; atomMesh.setColorAt(s*ATOMS + i, g.setRGB(l, l, l*1.03)); }
+  _c.setRGB(.6,.6,.64); for (let i=0;i<h.count-1;i++) bondMesh.setColorAt(s*BONDS + i, _c);
+  upd.aLo = Math.min(upd.aLo, s*ATOMS); upd.aHi = Math.max(upd.aHi, s*ATOMS + ATOMS - 1); upd.bLo = Math.min(upd.bLo, s*BONDS); upd.bHi = Math.max(upd.bHi, s*BONDS + BONDS - 1);
 }
 function flushHoloBuffers(){
   const push = (attr, lo, hi, stride) => { attr.updateRange.offset = lo*stride; attr.updateRange.count = (hi-lo+1)*stride; attr.needsUpdate = true; };
@@ -855,25 +913,25 @@ function updateHolograms(dt){
   atomMesh.count = (top+1)*ATOMS; bondMesh.count = (top+1)*BONDS;   // only the slots in use reach the GPU
   flushHoloBuffers();
 }
-function markSequenced(n, live){
+function markSequenced(n, live, dronePos, droneCount){
   if (sequenced.has(n.id)) return;
   sequenced.add(n.id); seqMark[n.id] = 1; seqCnt[n.ci]++; markMapped(n);
-  n.disp.copy(n.base).lerp(WHITE, .6);
-  const ca = nodesGeo.attributes.aColor; ca.setXYZ(n.id, n.disp.r, n.disp.g, n.disp.b); ca.needsUpdate = true;
-  if (holo && n.id % 8 === 0){ holo.seq.setX(n.id/8, 1); holo.seq.needsUpdate = true; }
   if (!live) return;
-  SFX.bleep('done');
+  SFX.bleep('done', dronePos, droneCount);
   let pts = 100 + n.degree*8; activity[n.ci] += 6;
   if (objective && objective.type !== 'deploy' && n.ci === objective.ci){ pts += 150; objective.have++;
     if (objective.have >= objective.need) completeObjective(); }
-  score += pts; log(`SEQUENCED ${n.name} · k=${n.degree} · +${pts}`);
+  addScore(pts); log(`SEQUENCED ${n.name} · k=${n.degree} · +${pts}`);
 }
 function completeObjective(){
-  score += 500; log(`OBJECTIVE COMPLETE +500 · ${SECT[objective.ci].label}`); spawnDrone(); newObjective();
+  addScore(500); log(`OBJECTIVE COMPLETE +500 · ${SECT[objective.ci].label}`); spawnDrone(); newObjective();
 }
 // ---------------------------------------------------------------- sequencing drones (one earned per completed objective)
 const droneShipVelocity = new THREE.Vector3();
 const drones = [], DRONE_R = 9, DRONE_LEAD = 32, DRONE_MAX = 24;
+const DRONE_WALK_MIN = 49, DRONE_WALK_MAX = 99;
+const nextDroneWalk = () => DRONE_WALK_MIN + Math.random()*(DRONE_WALK_MAX-DRONE_WALK_MIN);
+const randomConnectedNode = () => connectedNodes[Math.floor(Math.random()*connectedNodes.length)] || null;
 const droneGeo = new THREE.OctahedronGeometry(.7, 0);
 const droneMat = new THREE.MeshPhysicalMaterial({ color:0x49dfff, metalness:.45, roughness:.16, clearcoat:1, clearcoatRoughness:.12, transparent:true, opacity:.62, depthWrite:false, toneMapped:false });
 const droneInnerMat = new THREE.MeshBasicMaterial({ color:0x00e5ff, transparent:true, opacity:.28, blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false });
@@ -948,7 +1006,7 @@ function updateDrones(dt){
       const a = d.beam.geometry.attributes.position; a.setXYZ(0, d.m.position.x, d.m.position.y, d.m.position.z); a.setXYZ(1, d.node.position.x, d.node.position.y, d.node.position.z); a.needsUpdate = true;
       if (d.m.position.distanceToSquared(d.node.position) < 100) d.prog += dt/2.2;
       else d.prog = Math.max(0, d.prog - dt);
-      if (d.prog >= 1){ const n = d.node; d.node = null; d.prog = 0; takenBy[n.id] = 0; markSequenced(n, true); }
+      if (d.prog >= 1){ const n = d.node; d.node = null; d.prog = 0; takenBy[n.id] = 0; markSequenced(n, true, d.m.position, drones.length); }
     }
   }
 }
@@ -1069,9 +1127,15 @@ const SFX = (() => {
       const m = SCALE[(step*3 + Math.floor(rnd(0,3))) % SCALE.length] + 12 + (newNode ? 12 : 0), dec = newNode ? 2.2 : .9, d = pos ? spatial(pos, dec+.3, newNode ? .9 : .6) : null;
       tone('sine', mtof(m), mtof(m), now, .03, dec, newNode ? .16 : .08, d, rnd(-6,6));
       if (newNode){ tone('triangle', mtof(m+7), mtof(m+7), now+.07, .03, 1.4, .06, d); tone('sine', mtof(m-12), mtof(m-12)*1.5, now, .03, .8, .08, d); } },
-    bleep(kind){ if (!ok()) return; const t = ac.currentTime;
+    bleep(kind, pos, droneCount){ if (!ok()) return; const t = ac.currentTime, dest = pos ? spatial(pos, .7, .12) : kind === 'done' ? sequenceBus : sfxBus, level = droneCount ? 1/droneCount : 1;
       const seq = kind === 'done' ? [880, 1320, 1760, 2637] : kind === 'lock' ? [1568, 1568] : [1760, 1175];
-      seq.forEach((f,i) => tone('square', f, f, t+i*.07, .002, .05, .035)); },
+      seq.forEach((f,i) => tone('square', f, f, t+i*.07, .002, .05, .035*level, dest));
+      if (kind === 'done'){
+        const n = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+        n.buffer = noiseBuf(.7); f.type = 'bandpass'; f.Q.value = .8;
+        f.frequency.setValueAtTime(3600, t); f.frequency.exponentialRampToValueAtTime(520, t+.38);
+        env(g, t, .008, .12*level, .42); n.connect(f); f.connect(g); g.connect(dest); n.start(t); n.stop(t+.7);
+      } },
     chatter(){ if (!ok()) return; const t = ac.currentTime, n = 2 + Math.floor(Math.random()*3);
       for (let i=0;i<n;i++) tone('square', 700 + Math.floor(rnd(0,8))*180, 700 + Math.floor(rnd(0,8))*180, t+i*.06, .002, .035, .02); },
     boost(on){ if (!ok()) return; const t = ac.currentTime;
@@ -1079,7 +1143,7 @@ const SFX = (() => {
       f.frequency.setValueAtTime(on ? 300 : 2500, t); f.frequency.exponentialRampToValueAtTime(on ? 2500 : 250, t+1); env(g, t, .3, .08, .8); n.connect(f); f.connect(g); g.connect(sfxBus); n.start(t); n.stop(t+1.2); }
   };
 })();
-addEventListener('keydown', e => { if (e.code === 'KeyM') SFX.toggle(); });
+addEventListener('keydown', e => { if (!apLock && e.code === 'KeyM') SFX.toggle(); });
 
 // ---------------------------------------------------------------- tracers & walkers
 const tracerGeo = new THREE.CylinderGeometry(.05,.05,5,8).rotateX(Math.PI/2), tracerGlow = new THREE.CylinderGeometry(.18,.18,5,8).rotateX(Math.PI/2);
@@ -1090,6 +1154,13 @@ function fire(){
   gunSide *= -1; p.position.copy(ship.localToWorld(_v.set(gunSide*1.6, -1.2, -3)));
   p.quaternion.copy(ship.quaternion); p.userData.vel = new THREE.Vector3(0,0,-1).applyQuaternion(ship.quaternion).multiplyScalar(240);
   p.userData.life = 2.4; scene.add(p); projectiles.push(p); SFX.fire(p.position);
+  Net.fired(p.position, p.quaternion);
+}
+function fireRemote(pos, quat){
+  const p = new THREE.Mesh(tracerGeo, tracerMat);
+  p.add(new THREE.Mesh(tracerGlow, tracerGlowMat));
+  p.position.fromArray(pos); p.quaternion.fromArray(quat); p.userData.vel = new THREE.Vector3(0,0,-1).applyQuaternion(p.quaternion).multiplyScalar(240);
+  p.userData.life = 2.4; p.userData.remote = true; scene.add(p); projectiles.push(p); SFX.fire(p.position);
 }
 let hitId = -1; const onHit = j => { if (hitId < 0) hitId = j; };
 function updateProjectiles(dt){
@@ -1098,22 +1169,27 @@ function updateProjectiles(dt){
     hitId = -1; forNear(p.position.x, p.position.y, p.position.z, 5, onHit);
     if (hitId >= 0 || p.userData.life <= 0){
       scene.remove(p); projectiles.splice(i,1);
-      if (hitId >= 0){ const n = nodes[hitId]; startWalker(n); SFX.hit(n.position); score += 10; log(`TRACER HIT ${n.name} · WALK DEPLOYED`); }
+      if (hitId >= 0 && !p.userData.remote){ const n = nodes[hitId]; startWalker(n); SFX.hit(n.position); addScore(10); log(`TRACER HIT ${n.name} · WALK DEPLOYED`); }
     }
   }
 }
 const walkerGeo = new THREE.SphereGeometry(.45,10,8), walkerMat = new THREE.MeshBasicMaterial({ color:0xffffff, toneMapped:false });
-function startWalker(n){
+function startWalker(n, seed, steps, remote){
+  if (seed === undefined){ seed = (Math.random()*4294967295)>>>0; steps = 20 + Math.floor(Math.random()*24); Net.walker(n.id, seed, steps); }
+  if (remote) Net.applying(true);
+  if (markMapped(n) && !remote) addScore(3);
+  if (remote) Net.applying(false);
+  const rng = mulberry32(seed);
   const m = new THREE.Mesh(walkerGeo, walkerMat); m.position.copy(n.position); scene.add(m);
   const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(160*3), 3).setUsage(THREE.DynamicDrawUsage)); tg.setDrawRange(0,0);
   const trail = new THREE.Line(tg, new THREE.LineBasicMaterial({ color:n.colorHex, transparent:true, blending:THREE.AdditiveBlending, toneMapped:false })); trail.frustumCulled = false; scene.add(trail);
-  walkers.push({ mesh:m, trail, count:0, cur:n, next:pickN(n), prog:0, steps:20 + Math.floor(Math.random()*24) });
-  if (objective && objective.type === 'deploy' && n.ci === objective.ci){
+  walkers.push({ mesh:m, trail, count:0, cur:n, next:pickN(n, rng), prog:0, steps, rng, remote });
+  if (!remote && objective && objective.type === 'deploy' && n.ci === objective.ci){
     objective.have++;
     if (objective.have >= objective.need) completeObjective();
   }
 }
-const pickN = n => n.neighbors.length ? n.neighbors[Math.floor(Math.random()*n.neighbors.length)] : null;
+const pickN = (n, rng) => n.neighbors.length ? n.neighbors[Math.floor(rng()*n.neighbors.length)] : null;
 function killWalker(i){ const w = walkers[i]; scene.remove(w.mesh); scene.remove(w.trail); w.trail.geometry.dispose(); w.trail.material.dispose(); walkers.splice(i,1); }
 function bounceWalkerOffShip(w){
   const radius = SHIP_SHIELD_RADIUS + .45, m = w.mesh.position;
@@ -1121,8 +1197,6 @@ function bounceWalkerOffShip(w){
   if (d2 >= radius*radius) return;
   // ship may overtake a walker, so test the current position rather than the segment
   const out = d2 > 1e-6 ? _v.normalize() : _v.set(0,1,0);
-  _v2.copy(w.next.position).sub(w.cur.position);
-  if (_v2.dot(out) < 0){ const prev = w.cur; w.cur = w.next; w.next = prev; w.prog = 1-w.prog; }
   m.copy(ship.position).addScaledVector(out, radius);
 }
 function updateWalkers(dt){
@@ -1130,10 +1204,12 @@ function updateWalkers(dt){
     const w = walkers[i]; if (!w.next){ killWalker(i); continue; }
     w.prog += dt*1.6;
     if (w.prog >= 1){ w.prog = 0; w.cur = w.next; w.steps--;
-      const fresh = markMapped(w.cur); if (fresh) score += 3;
+      if (w.remote) Net.applying(true);
+      const fresh = markMapped(w.cur); if (fresh && !w.remote) addScore(3);
+      if (w.remote) Net.applying(false);
       SFX.node(fresh, w.steps, w.cur.position);
       activity[w.cur.ci] += 1;
-      if (w.steps <= 0){ killWalker(i); continue; } w.next = pickN(w.cur); continue; }
+      if (w.steps <= 0){ killWalker(i); continue; } w.next = pickN(w.cur, w.rng); continue; }
     w.mesh.position.copy(w.cur.position).lerp(w.next.position, w.prog);
     bounceWalkerOffShip(w);
     const a = w.trail.geometry.attributes.position, arr = a.array;
@@ -1210,8 +1286,9 @@ function drawEgo(t){
       ctx.beginPath(); ctx.moveTo(P[a][0],P[a][1]); ctx.lineTo(P[b][0],P[b][1]); ctx.stroke();
       if (core){ const k = (t*.6 + b*.13)%1; ctx.fillStyle = '#fff'; ctx.fillRect(P[a][0]+(P[b][0]-P[a][0])*k-2, P[a][1]+(P[b][1]-P[a][1])*k-2, 4, 4); } });
     ego.items.forEach((it,i) => { const r = it.ring === 0 ? 12 : it.ring === 1 ? 7 : 4;
-      glowDot(ctx, P[i][0], P[i][1], r, it.n.colorHex, it.ring === 0 ? 22 : 8);
-      if (seqMark[it.n.id]){ ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(P[i][0],P[i][1],r+5,0,Math.PI*2); ctx.stroke(); } });
+      const color = mapped.has(it.n.id) ? '#777780' : it.n.colorHex;
+      glowDot(ctx, P[i][0], P[i][1], r, color, it.ring === 0 ? 22 : 8);
+      if (mapped.has(it.n.id)){ ctx.strokeStyle = '#a7a7af'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(P[i][0],P[i][1],r+5,0,Math.PI*2); ctx.stroke(); } });
     ctx.font = `700 22px ${FM}`; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(targetNode.name, cx, cy - 22);
     if (scanNode === targetNode && scanProg > 0){ ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(cx,cy,19,-Math.PI/2,-Math.PI/2+scanProg*Math.PI*2); ctx.stroke(); }
   }
@@ -1219,7 +1296,7 @@ function drawEgo(t){
   ctx.font = `19px ${FM}`; ctx.textAlign = 'left'; ctx.fillStyle = '#8a7aa8';
   if (ego){ ctx.fillText('k', 18, h-15); ctx.fillStyle = '#fff'; ctx.fillText(String(targetNode.degree), 36, h-15);
     ctx.fillStyle = '#8a7aa8'; ctx.fillText('C', 96, h-15); ctx.fillStyle = '#fff'; ctx.fillText(ego.cc.toFixed(2), 116, h-15);
-    ctx.textAlign = 'right'; const sq = seqMark[targetNode.id]; ctx.fillStyle = sq ? '#fff' : SECT[targetNode.ci].css; ctx.fillText(sq ? 'SEQUENCED' : SECT[targetNode.ci].label, w-18, h-15); }
+    ctx.textAlign = 'right'; const sq = seqMark[targetNode.id], mp = mapped.has(targetNode.id); ctx.fillStyle = sq ? '#a7a7af' : SECT[targetNode.ci].css; ctx.fillText(sq ? 'SEQUENCED' : mp ? 'MAPPED' : SECT[targetNode.ci].label, w-18, h-15); }
   else ctx.fillText('FLY CLOSER TO LOCK A NODE', 18, h-15);
   finish(p);
 }
@@ -1347,14 +1424,19 @@ function drawComms(force){
   finish(p);
 }
 function drawMission(){
-  const sig = `${score}|${drones.length}|${sequenced.size}|${mapped.size}|${objective ? objective.ci + ':' + objective.have + ':' + objective.need + objective.type : ''}`;
+  const sig = `${GAME.level}|${score}|${drones.length}|${sequenced.size}|${mapped.size}|${objective ? objective.ci + ':' + objective.have + ':' + objective.need + objective.type : ''}`;
   if (sig === missionSig) return; missionSig = sig;
   const p = screens.mission, { ctx, w, h } = p; bg(p);
   let rk = RANKS[0][1]; RANKS.forEach(([s,n]) => { if (score >= s) rk = n; });
-  const top = header(p, 'MISSION', rk, '#ffb347');
+  const top = header(p, `MISSION · LEVEL ${GAME.level}`, rk, '#ffb347');
   ctx.textAlign = 'left'; ctx.font = `17px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('SCORE', 18, top + 20);
   ctx.font = `700 56px ${FD}`; ctx.fillStyle = '#fff'; ctx.shadowColor = '#ff2e88'; ctx.shadowBlur = 14; ctx.fillText(score.toLocaleString('en-US'), 18, top + 74); ctx.shadowBlur = 0;
-  ctx.font = `20px ${FM}`; ctx.fillStyle = '#00e5ff'; ctx.fillText(`DRONES ${drones.length}`, 18, top + 112);
+  const fr = mapped.size/N, tg = LEVEL_TARGETS[GAME.level-1];
+  ctx.font = `700 46px ${FD}`; ctx.fillStyle = '#fff'; ctx.fillText(`${(fr*100).toFixed(1)}%`, 18, top + 130);
+  ctx.font = `15px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText(`VISITED · TARGET ${Math.round(tg*100)}%`, 18, top + 150);
+  ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(18, top + 160, 262, 16);
+  const bg2 = ctx.createLinearGradient(18,0,280,0); bg2.addColorStop(0,'#00e5ff'); bg2.addColorStop(1,'#ff2e88'); ctx.fillStyle = bg2; ctx.fillRect(18, top + 160, 262*Math.min(1, fr/tg), 16);
+  ctx.font = `20px ${FM}`; ctx.fillStyle = '#00e5ff'; ctx.fillText(`DRONES ${drones.length}`, 18, h - 56);
   if (objective){ const s = SECT[objective.ci];
     ctx.font = `24px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('OBJECTIVE', 300, top + 20);
     ctx.font = `700 38px ${FD}`; ctx.fillStyle = s.css; ctx.fillText(`${objective.type === 'deploy' ? 'DEPLOY' : 'SEQUENCE'} ${objective.type === 'deploy' ? objective.need + ' WALKS' : objective.need}`, 300, top + 62, 402);
@@ -1415,13 +1497,14 @@ function updateLock(){
 let holo = null;
 const LAYOUTS = ['SPATIAL','SECTOR SHELLS','DEGREE SECTORS','SPHERE BANDS'];
 const WOB = `vec3 wob(float s){ float w = sin(uTime*1.2 + s*6.283)*uWob; return vec3(w, cos(uTime + s*4.4)*uWob, -w); }`;
-const HOLO_PT_VS = `attribute vec3 aPosA; attribute vec3 aPosB; attribute vec3 aColor; attribute float aSize; attribute float aSeed; attribute float aFlash; attribute float aSeq;
+const HOLO_PT_VS = `attribute vec3 aPosA; attribute vec3 aPosB; attribute vec3 aColor; attribute float aSize; attribute float aSeed; attribute float aFlash; attribute float aMapped;
   uniform float uK; uniform float uTime; uniform float uScale; uniform float uWob; varying vec3 vC; varying float vF; ${WOB}
   void main(){ vec3 p = mix(aPosA, aPosB, uK) + wob(aSeed);
     vec4 mv = modelViewMatrix*vec4(p,1.); float tw = .78 + .22*sin(uTime*1.7 + aSeed*50.);
     gl_PointSize = clamp(aSize*uScale*tw/-mv.z, 0., 64.); gl_Position = projectionMatrix*mv;
-    float m = max(exp(-3.9*max(0., uTime - aFlash)), aSeq*.55);
-    vC = mix(aColor*(.42 + .22*sin(uTime*2. + aSeed*40.)), vec3(1.), m*.8); vF = 0.; }`;
+    float flash = exp(-3.9*max(0., uTime - aFlash));
+    vec3 c = mix(aColor, vec3(.6,.6,.64), aMapped);
+    vC = mix(c*(.42 + .22*sin(uTime*2. + aSeed*40.)), vec3(1.), flash*.8); vF = 0.; }`;
 const HOLO_LN_VS = `attribute vec3 aPosA; attribute vec3 aPosB; attribute vec3 aColor; attribute float aSeed; attribute float aBirth; attribute float aCross;
   uniform float uK; uniform float uTime; uniform float uWob; varying vec3 vC; ${WOB}
   void main(){ vec3 p = mix(aPosA, aPosB, uK) + wob(aSeed); gl_Position = projectionMatrix*modelViewMatrix*vec4(p,1.);
@@ -1444,14 +1527,14 @@ function setupHolo(){
     const a = n.ci*Math.PI/3 + n.r1*Math.PI/3*.84, rad = .28 + n.r2*.72; L[2].set([Math.cos(a)*rad, clamp((n.degree - meanK)*.07, -.8, .8), Math.sin(a)*rad], i*3);
     const g = fib(rank[i], NS); L[3].set([g[0]*.9, g[1]*.9, g[2]*.9], i*3);
   });
-  const col = new Float32Array(NS*3), size = new Float32Array(NS), seed = new Float32Array(NS), flash = new Float32Array(NS).fill(-100), seqA = new Float32Array(NS);
-  sample.forEach((n,i) => { size[i] = .0026*(1 + Math.sqrt(n.degree)*.3); seed[i] = n.r1; col.set([n.base.r, n.base.g, n.base.b], i*3); seqA[i] = seqMark[n.id]; });
+  const col = new Float32Array(NS*3), size = new Float32Array(NS), seed = new Float32Array(NS), flash = new Float32Array(NS).fill(-100), mappedA = new Float32Array(NS);
+  sample.forEach((n,i) => { size[i] = .0026*(1 + Math.sqrt(n.degree)*.3); seed[i] = n.r1; col.set([n.base.r, n.base.g, n.base.b], i*3); mappedA[i] = mapped.has(n.id) ? 1 : 0; });
   const dyn = (arr, n) => new THREE.BufferAttribute(arr, n).setUsage(THREE.DynamicDrawUsage);
   const pg = new THREE.BufferGeometry();
   pg.setAttribute('position', new THREE.BufferAttribute(L[0], 3));   // bounding only; the shader positions from aPosA/aPosB
   pg.setAttribute('aPosA', dyn(new Float32Array(L[0]), 3)); pg.setAttribute('aPosB', dyn(new Float32Array(L[1]), 3));
   pg.setAttribute('aColor', new THREE.BufferAttribute(col,3)); pg.setAttribute('aSize', new THREE.BufferAttribute(size,1)); pg.setAttribute('aSeed', new THREE.BufferAttribute(seed,1));
-  pg.setAttribute('aFlash', dyn(flash,1)); pg.setAttribute('aSeq', dyn(seqA,1));
+  pg.setAttribute('aFlash', dyn(flash,1)); pg.setAttribute('aMapped', dyn(mappedA,1));
   const uK = { value:0 }, uWob = { value:reduceMotion ? 0 : .01 };
   const pmat = new THREE.ShaderMaterial({ uniforms:{ uTime:uniformsShared.uTime, uScale:{ value:900 }, uGain:{ value:.38 }, uK, uWob }, vertexShader:HOLO_PT_VS, fragmentShader:NODE_FS, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending });
   pointMats.push(pmat);
@@ -1483,10 +1566,9 @@ function setupHolo(){
   const label = new THREE.Mesh(new THREE.PlaneGeometry(.2, .025), new THREE.MeshBasicMaterial({ map:lbl.tex, transparent:true, depthWrite:false, toneMapped:false }));
   label.position.set(0, -.16, .16); holoRoot.add(label);
   const setLayout = i => { idx = i; pg.attributes.aPosA.array.set(L[i]); pg.attributes.aPosB.array.set(L[(i+1)%4]); pg.attributes.aPosA.needsUpdate = pg.attributes.aPosB.needsUpdate = true; for (let s=0;s<E;s++) writeEdgeVerts(s); };
-  holo = { group, sample, NS, pg, eg, E, rewire, setLayout, get idx(){ return idx; }, uK, shipM, tgtM, base, lbl, seq:pg.attributes.aSeq, lastShown:-1, WS };
+  holo = { group, sample, NS, pg, eg, E, rewire, setLayout, get idx(){ return idx; }, uK, shipM, tgtM, base, lbl, mapped:pg.attributes.aMapped, lastShown:-1, WS };
 }
 const ease = x => x < .5 ? 4*x*x*x : 1 - Math.pow(-2*x+2, 3)/2;
-const WHITE = new THREE.Color(1,1,1);
 function updateHolo(t, dt){
   const H = holo, HOLD = 8, TR = 3, per = HOLD + TR, cyc = t/per, idx = Math.floor(cyc) % 4, ph = (cyc % 1)*per, k = ph < HOLD ? 0 : ease((ph-HOLD)/TR);
   if (idx !== H.idx) H.setLayout(idx);
@@ -1545,14 +1627,16 @@ function start(data){
   setupHolo();
   setupLock();
   [0,1].forEach(i => { const c = renderer.xr.getController(i); c.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0,0,-.25)]), new THREE.LineBasicMaterial({ color:0xff2e88 }))); rig.add(c); });
+  if (!data.mapped && GAME.launched){ data.launched = true; data.score = GAME.score; }
   if (data.score) score = data.score;
+  if (Array.isArray(data.mapped)) data.mapped.forEach(id => nodes[id] && markMapped(nodes[id]));
   if (Array.isArray(data.sequenced)) data.sequenced.forEach(id => nodes[id] && markSequenced(nodes[id], false));
   objective = data.objective || null; if (!objective) newObjective();
   for (let i=0;i<(data.drones|0);i++) spawnDrone();
   if (data.pos) ship.position.fromArray(data.pos);
   if (data.quat) ship.quaternion.fromArray(data.quat);
   const hot = window.claude?.hot;
-  const snap = () => ({ score, sequenced:[...sequenced], objective, drones:drones.length, pos:ship.position.toArray(), quat:ship.quaternion.toArray(), launched });
+  const snap = () => ({ score, mapped:[...mapped], sequenced:[...sequenced], objective, drones:drones.length, pos:ship.position.toArray(), quat:ship.quaternion.toArray(), launched });
   window.__ppiSnapshot = snap; window.__ppiInXR = () => inXR;
   if (hot && typeof hot.snapshot === 'function') hot.snapshot(snap);
   log(`LINK UP · ${N.toLocaleString('en-US')} PROTEINS · ${edgeCount.toLocaleString('en-US')} INTERACTIONS`);
@@ -1561,7 +1645,41 @@ function start(data){
   clock = new THREE.Clock();
   renderer.setAnimationLoop(loop);
   setupVR();
+  Net.init(); bindRoomUI();
   if (data.launched){ bootT = 1; launch(); }
+}
+
+function bindRoomUI(){
+  const inp = $('mp-room'), join = $('mp-join'), copy = $('mp-copy'), leave = $('mp-leave');
+  const go = code => { try { sessionStorage.removeItem('ppi-game'); sessionStorage.removeItem('ppi-hot'); } catch (e) {}
+    location.hash = code ? 'room=' + code : ''; location.reload(); };
+  if (ROOM){ inp.value = ROOM; inp.readOnly = true; join.hidden = true; copy.hidden = false; leave.hidden = false; $('mp-lbl').textContent = 'MULTIPLAYER · ROOM'; }
+  join.onclick = () => { const c = inp.value.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24) || Math.random().toString(36).slice(2, 8).toUpperCase(); go(c); };
+  inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') join.onclick(); };
+  inp.onkeyup = e => e.stopPropagation();
+  copy.onclick = () => { const u = location.href.split('#')[0] + '#room=' + ROOM; (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => { copy.textContent = 'COPIED'; setTimeout(() => copy.textContent = 'COPY LINK', 1500); }, () => prompt('Share this link', u)); };
+  leave.onclick = () => go('');
+}
+
+let levelBusy = false;
+function updateHud(){
+  const fr = mapped.size/N, tg = LEVEL_TARGETS[GAME.level-1];
+  $('hud-lv').textContent = `LEVEL ${GAME.level} / 3`; $('hud-pc').textContent = (fr*100).toFixed(1) + '%';
+  $('hud-tg').textContent = `VISITED · TARGET ${Math.round(tg*100)}%`;
+  $('hud-bar').style.width = Math.min(100, fr/tg*100).toFixed(1) + '%'; $('hud-tick').style.left = '100%';
+  if (!levelBusy && fr >= tg - 1e-9) advanceLevel();
+}
+function advanceLevel(){
+  levelBusy = true;
+  const win = GAME.level >= 3, next = win ? 1 : GAME.level + 1;
+  $('lvl-h').textContent = win ? 'YOU WIN' : `LEVEL ${next}`;
+  $('lvl-p').textContent = win ? 'NETWORK FULLY MAPPED · CLICK TO PLAY AGAIN' : `NEW NETWORK · EXPLORE ${Math.round(LEVEL_TARGETS[next-1]*100)}% · CLICK TO CONTINUE`;
+  $('lvl').classList.add('on');
+  let done = false;
+  const go = () => { if (done) return; done = true;
+    try { sessionStorage.setItem('ppi-game', JSON.stringify({ level:next, seed:ROOM ? roomSeed(next) : (Math.random()*4294967295)>>>0, score:win ? 0 : score, launched:true })); sessionStorage.removeItem('ppi-hot'); } catch (e) {}
+    location.reload(); };
+  $('lvl').onclick = go; setTimeout(go, win ? 8000 : 4000);
 }
 
 function launch(){
@@ -1589,23 +1707,29 @@ function setupVR(){
 
 function bindInput(){
   addEventListener('pointermove', e => {
-    if (e.pointerType === 'mouse'){ ptr.mouse = true; ptr.x = e.clientX; ptr.y = e.clientY; poke(); }
+    if (apLock) return;
+    if (e.pointerType === 'mouse'){ if (mouseOff) return; ptr.mouse = true; ptr.x = e.clientX; ptr.y = e.clientY; poke(); }
     else { ptr.x = e.clientX; ptr.y = e.clientY; }
   });
   addEventListener('pointerleave', e => { if (e.pointerType === 'mouse'){ ptr.x = VW/2; ptr.y = VH*.36; } });
   addEventListener('pointerdown', e => {
-    if (!launched || e.target.closest('button')) return;
+    if (!launched || apLock || e.target.closest('button')) return;
     SFX.start(); poke();
-    if (e.pointerType === 'mouse'){ ptr.mouse = true; ptr.x = e.clientX; ptr.y = e.clientY; fire(); } else { ptr.x = e.clientX; ptr.y = e.clientY; ptr.touchThrust = true; }
+    if (e.pointerType === 'mouse'){ if (!mouseOff){ ptr.mouse = true; ptr.x = e.clientX; ptr.y = e.clientY; } fire(); } else { ptr.x = e.clientX; ptr.y = e.clientY; ptr.touchThrust = true; }
   });
   addEventListener('pointerup', e => { if (e.pointerType !== 'mouse'){ ptr.touchThrust = false; ptr.x = VW/2; ptr.y = VH*.36; } });
   addEventListener('pointercancel', () => { ptr.touchThrust = false; });
   addEventListener('keydown', e => {
     if (!launched){ if ((e.code === 'Enter' || e.code === 'Space') && !$('btn-launch').disabled){ launch(); e.preventDefault(); } return; }
+    if (apLock) return;
     poke();
     switch (e.code){
-      case 'KeyW': case 'ArrowUp': keys.w = true; break;
-      case 'KeyS': case 'ArrowDown': keys.s = true; break;
+      case 'KeyW': keys.w = true; break;
+      case 'KeyS': keys.s = true; break;
+      case 'ArrowLeft': case 'KeyJ': keys.rl = true; e.preventDefault(); break;
+      case 'ArrowRight': case 'KeyL': keys.rr = true; e.preventDefault(); break;
+      case 'ArrowUp': case 'KeyI': case 'Digit2': case 'Digit3': keys.pd = true; e.preventDefault(); break;
+      case 'ArrowDown': case 'KeyK': case 'KeyZ': case 'KeyX': keys.pu = true; e.preventDefault(); break;
       case 'KeyA': keys.a = true; break;
       case 'KeyD': keys.d = true; break;
       case 'KeyQ': keys.q = true; break;
@@ -1616,10 +1740,24 @@ function bindInput(){
       case 'KeyB': bloomOn = !bloomOn; log(bloomOn ? 'BLOOM ON' : 'BLOOM OFF'); break;
     }
   });
-  addEventListener('keyup', e => { switch (e.code){ case 'KeyW': case 'ArrowUp': keys.w = false; break; case 'KeyS': case 'ArrowDown': keys.s = false; break; case 'KeyA': keys.a = false; break; case 'KeyD': keys.d = false; break; case 'KeyQ': keys.q = false; break; case 'KeyE': keys.e = false; break; case 'ShiftLeft': case 'ShiftRight': keys.shift = false; break; } });
+  addEventListener('keyup', e => { switch (e.code){ case 'KeyW': keys.w = false; break; case 'KeyS': keys.s = false; break; case 'ArrowLeft': case 'KeyJ': keys.rl = false; break; case 'ArrowRight': case 'KeyL': keys.rr = false; break; case 'ArrowUp': case 'KeyI': case 'Digit2': case 'Digit3': keys.pd = false; break; case 'ArrowDown': case 'KeyK': case 'KeyZ': case 'KeyX': keys.pu = false; break; case 'KeyA': keys.a = false; break; case 'KeyD': keys.d = false; break; case 'KeyQ': keys.q = false; break; case 'KeyE': keys.e = false; break; case 'ShiftLeft': case 'ShiftRight': keys.shift = false; break; } });
   $('btn-launch').addEventListener('click', launch);
-  $('t-fire').addEventListener('pointerdown', e => { e.preventDefault(); poke(); fire(); });
-  $('t-boost').addEventListener('pointerdown', e => { e.preventDefault(); poke(); keys.shift = true; ptr.touchThrust = true; });
+  $('ap-btn').addEventListener('click', () => {
+    apLock = !apLock;
+    const b = $('ap-btn'); b.setAttribute('aria-pressed', apLock); b.textContent = 'AUTOPILOT: ' + (apLock ? 'ON' : 'OFF');
+    $('t-fire').disabled = $('t-boost').disabled = apLock;
+    if (apLock){
+      for (const k in keys) keys[k] = false;
+      ptr.touchThrust = false;
+      if (launched && !autopilot){ autopilot = true; apTarget = null; apState = 'cruising'; apTimer = performance.now() + 3000; log('AUTOPILOT LOCKED'); }
+    } else { lastInput = performance.now(); if (launched) log('CONTROLS RESTORED'); }
+  });
+  $('mouse-btn').addEventListener('click', e => {
+    mouseOff = !mouseOff; e.currentTarget.setAttribute('aria-pressed', mouseOff); e.currentTarget.textContent = 'MOUSE: ' + (mouseOff ? 'OFF' : 'ON');
+    ptr.x = VW/2; ptr.y = VH*.36; e.currentTarget.blur();
+  });
+  $('t-fire').addEventListener('pointerdown', e => { e.preventDefault(); if (apLock) return; poke(); fire(); });
+  $('t-boost').addEventListener('pointerdown', e => { e.preventDefault(); if (apLock) return; poke(); keys.shift = true; ptr.touchThrust = true; });
   $('t-boost').addEventListener('pointerup', () => { keys.shift = false; ptr.touchThrust = false; });
 }
 
@@ -1642,6 +1780,7 @@ function loop(){
   if (frame % 3 === 1) SFX.listen(camera);
   updateHolograms(dt);
   updateDrones(dt);
+  Net.update(dt, t);
   const decay = Math.pow(.6, dt); for (let i=0;i<activity.length;i++) activity[i] *= decay;
   telAcc += dt; if (telAcc > .1){ telAcc = 0; telemetry.spd.push(speed); telemetry.wlk.push(walkers.length); if (telemetry.spd.length > 150){ telemetry.spd.shift(); telemetry.wlk.shift(); } }
   sky.position.copy(ship.position); stars.position.copy(ship.position);
@@ -1658,10 +1797,135 @@ function loop(){
   if (frame % (6*s) === 0) drawFlux();
   if (frame % (4*s) === 3) drawComms(frame < 10);
   if (frame % (6*s) === 5) drawMission();
+  if (frame % 10 === 4 && launched) updateHud();
   if (frame % 2 === 0) drawCompass(frame < 10);
   if (frame % 30 === 7) computeMotifs();
   if (composer && bloomOn && !renderer.xr.isPresenting) composer.render(); else renderer.render(scene, camera);
 }
+
+// ================================================================ multiplayer (PeerJS full mesh)
+/* Room code -> one shared seed, so every pilot flies the same network. Peers find each other through a well-known "lobby" id that any
+   connected pilot may hold (re-claimed every 8s if it frees up); the lobby holder only hands out the list of mesh peer ids, then each
+   newcomer dials every one of them directly. Each pair keeps exactly one connection (the one initiated by the lower id wins). */
+const Net = (() => {
+  const SEND_MS = 100, remotes = new Map(), conns = new Map();
+  const myName = 'PILOT-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+  let peer = null, lobby = null, started = false, sendAcc = 0, pend = [], pendAcc = 0, applying = false;
+  const shipGeo = new THREE.ConeGeometry(1.3, 5, 4), glowTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+    const g = x.createRadialGradient(32,32,0,32,32,32); g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(1,'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0,0,64,64); return new THREE.CanvasTexture(c); })();
+  const ui = () => { const el = $('net'); if (!ROOM) return; el.style.display = 'block'; el.innerHTML = `ROOM <b>${ROOM}</b> · <b>${remotes.size + 1}</b> PILOT${remotes.size ? 'S' : ''}`; };
+  const hue = id => { let h = 0; for (let i=0;i<id.length;i++) h = (h*31 + id.charCodeAt(i)) % 360; return h; };
+
+  function makeRemote(id, name){
+    const col = new THREE.Color().setHSL(hue(id)/360, .9, .6), g = new THREE.Group();
+    const body = new THREE.Mesh(shipGeo, new THREE.MeshBasicMaterial({ color:col, toneMapped:false })); body.rotation.x = -Math.PI/2; g.add(body);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map:glowTex, color:col, blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false })); glow.scale.set(14,14,1); g.add(glow);
+    const c = document.createElement('canvas'); c.width = 256; c.height = 48; const x = c.getContext('2d');
+    x.font = `22px ${FM}`; x.textAlign = 'center'; x.fillStyle = '#' + col.getHexString(); x.fillText(name, 128, 32);
+    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map:new THREE.CanvasTexture(c), transparent:true, depthTest:false, toneMapped:false })); label.scale.set(24,4.5,1); label.position.y = 5; label.renderOrder = 5; g.add(label);
+    g.visible = false; scene.add(g);
+    return { id, name, g, tp:new THREE.Vector3(), tq:new THREE.Quaternion(), seen:false };
+  }
+  function dropRemote(id){
+    const r = remotes.get(id); if (!r) return;
+    scene.remove(r.g); r.g.traverse(o => { if (o.material){ if (o.material.map && o.material.map !== glowTex) o.material.map.dispose(); o.material.dispose(); } });
+    remotes.delete(id); ui(); log(`${r.name} LEFT THE SECTOR`);
+  }
+  function send(msg){ conns.forEach(c => { if (c.open) c.send(msg); }); }
+
+  function onData(c, m){
+    if (!m || typeof m !== 'object') return;
+    if (m.t === 'h'){
+      if (typeof m.l === 'number' && m.l > GAME.level && m.l <= 3){   // someone is further along: join their level
+        try { sessionStorage.setItem('ppi-game', JSON.stringify({ level:m.l, seed:roomSeed(m.l), score, launched })); sessionStorage.removeItem('ppi-hot'); } catch (e) {}
+        location.reload(); return;
+      }
+      let r = remotes.get(c.peer);
+      if (!r){ r = makeRemote(c.peer, String(m.n || 'PILOT').slice(0, 16)); remotes.set(c.peer, r); ui(); log(`${r.name} JOINED THE SECTOR`); SFX.bleep('done'); }
+      if (m.l === GAME.level && Array.isArray(m.m)) applyMapped(m.m);
+      if (!r.scored){ r.scored = true; if (typeof m.s === 'number' && m.s > score) score = m.s; }
+    } else if (m.t === 'p' && Array.isArray(m.v) && m.v.length >= 7){
+      const r = remotes.get(c.peer); if (!r) return;
+      r.tp.set(m.v[0], m.v[1], m.v[2]); r.tq.set(m.v[3], m.v[4], m.v[5], m.v[6]);
+      if (!r.seen){ r.seen = true; r.g.position.copy(r.tp); r.g.quaternion.copy(r.tq); r.g.visible = true; }
+    } else if (m.t === 'f' && Array.isArray(m.p) && Array.isArray(m.q) && remotes.has(c.peer)) fireRemote(m.p, m.q);
+    else if (m.t === 'm' && Array.isArray(m.m)) applyMapped(m.m);
+    else if (m.t === 'w' && remotes.has(c.peer) && nodes[m.id] && nodes[m.id].neighbors && Number.isFinite(m.s) && Number.isFinite(m.k)) startWalker(nodes[m.id], m.s >>> 0, clamp(m.k | 0, 1, 80), true);
+    else if (m.t === 's' && Number.isFinite(m.d) && remotes.has(c.peer)) score += clamp(m.d, 0, 1000);
+  }
+  function applyMapped(ids){
+    applying = true;
+    for (let i=0;i<ids.length;i++){ const n = nodes[ids[i]]; if (n) markMapped(n); }
+    applying = false;
+  }
+  function hello(c){ c.send({ t:'h', n:myName, l:GAME.level, s:score, m:[...mapped] }); }
+
+  function register(c, out){
+    const id = c.peer, ini = out ? peer.id : id, old = conns.get(id);
+    if (old){ if (old.ini <= ini){ c.close(); return; } conns.delete(id); old.close(); }   // same rule on both ends, even if not open yet
+    c.ini = ini; conns.set(id, c);
+    const up = () => { if (conns.get(id) === c) hello(c); };
+    if (c.open) up(); else c.on('open', up);
+    c.on('data', m => { if (conns.get(id) === c) onData(c, m); });
+    const gone = () => { if (conns.get(id) === c){ conns.delete(id); dropRemote(id); } };
+    c.on('close', gone); c.on('error', gone);
+  }
+  function dial(id){ if (id === peer.id || conns.has(id)) return; register(peer.connect(id, { reliable:true }), true); }
+
+  function claimLobby(){
+    if (lobby || !peer || peer.destroyed) return;
+    const lp = new Peer('ppi1-' + ROOM); lobby = lp;
+    lp.on('connection', c => c.on('open', () => { c.send({ peers:[peer.id, ...conns.keys()] }); setTimeout(() => c.close(), 1500); }));
+    lp.on('error', e => { try { lp.destroy(); } catch (x) {} if (lobby === lp) lobby = null;
+      if (e.type === 'unavailable-id') introduce(); });
+    lp.on('disconnected', () => { try { lp.destroy(); } catch (e) {} });
+    lp.on('close', () => { if (lobby === lp) lobby = null; });
+  }
+  function introduce(){
+    if (started) return; started = true;
+    const c = peer.connect('ppi1-' + ROOM, { reliable:true });
+    c.on('data', m => { if (m && Array.isArray(m.peers)) m.peers.slice(0, 64).forEach(id => typeof id === 'string' && dial(id)); });
+    c.on('close', () => { started = false; });
+    c.on('error', () => { started = false; });
+    setTimeout(() => { started = false; }, 5000);
+  }
+
+  return {
+    init(){
+      if (!ROOM || typeof Peer === 'undefined'){ if (ROOM) log('MULTIPLAYER OFFLINE · PEERJS FAILED TO LOAD'); return; }
+      ui();
+      const mk = () => {
+        const p = peer = new Peer();
+        p.on('open', () => { claimLobby(); introduce(); });
+        p.on('connection', c => register(c, false));
+        p.on('error', e => { if (e.type !== 'peer-unavailable') log('NET · ' + String(e.type || 'ERROR').toUpperCase()); });
+        p.on('disconnected', () => { try { p.reconnect(); } catch (e) {} });
+        p.on('close', () => {   // broker session died: rebuild everything
+          if (peer !== p) return;
+          conns.forEach(c => { try { c.close(); } catch (e) {} }); conns.clear(); remotes.forEach((r, id) => dropRemote(id));
+          if (lobby){ try { lobby.destroy(); } catch (e) {} lobby = null; }
+          setTimeout(mk, 2000);
+        });
+      };
+      mk();
+      // keep trying: reclaim a freed lobby id, and re-ask the lobby for peers so dropped links get re-dialed
+      setInterval(() => { if (!peer || !peer.open) return; claimLobby(); if (!(lobby && lobby.open)) introduce(); }, 6000);
+    },
+    applying(v){ applying = v; },
+    walker(id, s, k){ if (peer) send({ t:'w', id, s, k }); },
+    score(d){ if (peer && !applying && d) send({ t:'s', d }); },
+    mapped(id){ if (!peer || applying) return; pend.push(id); },
+    fired(p, q){ if (peer) send({ t:'f', p:p.toArray(), q:q.toArray() }); },
+    update(dt){
+      if (!peer) return;
+      remotes.forEach(r => { if (!r.seen) return; const k = damp(10, dt); r.g.position.lerp(r.tp, k); r.g.quaternion.slerp(r.tq, k); });
+      sendAcc += dt*1000; pendAcc += dt*1000;
+      if (sendAcc >= SEND_MS && conns.size){ sendAcc = 0; send({ t:'p', v:[...ship.position.toArray(), ...ship.quaternion.toArray()] }); }
+      if (pendAcc >= 400){ pendAcc = 0; if (pend.length){ if (conns.size) send({ t:'m', m:pend }); pend = []; } }
+    },
+    get room(){ return ROOM; }
+  };
+})();
 
 const hot = window.claude?.hot;
 if (hot && typeof hot.ready === 'function') hot.ready(start); else start(hot?.data ?? window.__ppiHotData ?? {});
