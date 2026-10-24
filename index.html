@@ -51,6 +51,10 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 #help b{color:var(--cyan);font-weight:400}
 #help.off{opacity:0}
 .touch{display:none}
+#ap-btn{position:fixed;z-index:17;top:max(16px,env(safe-area-inset-top,0px));right:max(16px,env(safe-area-inset-right,0px));font-family:var(--f-disp);font-weight:700;font-size:12px;letter-spacing:.25em;padding:10px 16px;color:#fff;cursor:pointer;background:rgba(7,1,15,.6);border:1px solid var(--cyan)}
+#ap-btn[aria-pressed="true"]{background:rgba(0,229,255,.3);box-shadow:0 0 18px rgba(0,229,255,.5)}
+#ap-btn:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.touch button:disabled{opacity:.35}
 @media (pointer:coarse){
   .touch{display:flex;position:fixed;z-index:16;gap:10px;right:max(16px,env(safe-area-inset-right,0px));bottom:max(80px,calc(env(safe-area-inset-bottom,0px) + 80px))}
   .touch button{font-family:var(--f-disp);font-weight:700;font-size:12px;letter-spacing:.15em;color:#fff;width:66px;height:66px;border-radius:50%;background:rgba(255,46,136,.2);border:1px solid var(--pink)}
@@ -80,6 +84,7 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 </div>
 
 <div id="help" class="off"><b>MOUSE</b> steer · <b>W/S</b> thrust · <b>A/D</b> yaw · <b>Q/E</b> pitch · <b>SHIFT</b> overdrive · <b>SPACE</b> tracer · <b>B</b> bloom · <b>M</b> mute · <b>H</b> hide<br>VR: right stick steer · left trigger thrust · grip overdrive · right trigger fire</div>
+<button id="ap-btn" type="button" aria-pressed="false">AUTOPILOT: OFF</button>
 <div class="touch"><button class="b" id="t-boost" type="button">BOOST</button><button id="t-fire" type="button">FIRE</button></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -89,6 +94,62 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script>
+/* Hot update: poll for a new deploy, then reload in place carrying the flight state (score, drones, sequenced proteins, pose).
+   Only if the new build fails to come up does the player get a manual button. */
+(() => {
+  const KEY = 'ppi-hot', POLL_MS = 30000;
+  let baseline = null, busy = false, bootFailed = false;
+  const prev = (() => { try { return JSON.parse(sessionStorage.getItem(KEY)); } catch (e) { return null; } })();
+  const tries = prev ? (prev.tries | 0) : 0;
+  if (prev && prev.data && tries < 2) { window.__ppiHotData = prev.data; try { sessionStorage.setItem(KEY, JSON.stringify({ data: prev.data, tries: tries + 1 })); } catch (e) {} }
+  else if (prev) sessionStorage.removeItem(KEY);
+
+  const banner = msg => {
+    if (document.getElementById('hot-fail')) return;
+    const d = document.createElement('div'); d.id = 'hot-fail';
+    d.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99;padding:10px 14px;background:rgba(30,10,16,.94);border:1px solid #f36;color:#ffd0dc;font:12px monospace;letter-spacing:.08em;display:flex;gap:12px;align-items:center';
+    d.innerHTML = '<span></span><button type="button" style="font:inherit;color:#f6a;background:none;border:1px solid #f36;padding:3px 8px;cursor:pointer">RELOAD</button>';
+    d.firstChild.textContent = msg;
+    d.lastChild.onclick = () => location.reload();
+    document.body.appendChild(d);
+  };
+  const onFail = () => { bootFailed = true; if (document.body) banner('UPDATE FAILED'); else addEventListener('DOMContentLoaded', () => banner('UPDATE FAILED')); };
+  if (prev) {
+    addEventListener('error', onFail);
+    addEventListener('unhandledrejection', onFail);
+    setTimeout(() => { removeEventListener('error', onFail); removeEventListener('unhandledrejection', onFail);
+      if (!bootFailed) sessionStorage.removeItem(KEY); }, 10000);
+  }
+
+  if (location.protocol === 'file:') return;
+  const sig = async () => {
+    const r = await fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw 0;
+    const t = await r.text();
+    let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
+    return h + ':' + t.length;
+  };
+  const swap = () => {
+    let data = null;
+    try { data = window.__ppiSnapshot && window.__ppiSnapshot(); } catch (e) {}
+    try { if (data && data.launched) sessionStorage.setItem(KEY, JSON.stringify({ data, tries: 0 })); else sessionStorage.removeItem(KEY); } catch (e) {}
+    location.reload();
+  };
+  const check = async () => {
+    if (busy || bootFailed || document.hidden) return;
+    busy = true;
+    try {
+      const s = await sig();
+      if (baseline === null) baseline = s;
+      else if (s !== baseline && !(window.__ppiInXR && window.__ppiInXR())) swap();
+    } catch (e) {} finally { busy = false; }
+  };
+  check();
+  setInterval(check, POLL_MS);
+  document.addEventListener('visibilitychange', check);
+})();
+</script>
 <script>
 (() => {
 'use strict';
@@ -126,6 +187,7 @@ const gauss = () => { let u = 0, v = 0; while (!u) u = srand(); while (!v) v = s
 const rgba = (hex,a) => `rgba(${hex>>16&255},${hex>>8&255},${hex&255},${a})`;
 
 const nodes = [];
+let connectedNodes = [];
 const POS = new Float32Array(N*3);      // flat positions: what every hot loop reads
 const seqMark = new Uint8Array(N);      // mirror of the `sequenced` set for typed-array loops
 let edgeCount = 0, bridgeCount = 0, maxDeg = 0, meanK = 0;
@@ -240,13 +302,13 @@ function buildScenery(){
         if (y < .55){ float band = fract(y*16. + uTime*.08); float w = mix(.55,.05,y/.55); if (band < w) discard; }
         gl_FragColor = vec4(c*.78, smoothstep(.5,.47,r)); }`
   }));
-  scene.add(sun);
+  sun.renderOrder = -9; scene.add(sun);
   const gc = document.createElement('canvas'); gc.width = gc.height = 256;
   const gx = gc.getContext('2d'), gg = gx.createRadialGradient(128,128,0,128,128,128);
   gg.addColorStop(0,'rgba(255,90,160,.28)'); gg.addColorStop(.4,'rgba(255,46,136,.08)'); gg.addColorStop(1,'rgba(0,0,0,0)');
   gx.fillStyle = gg; gx.fillRect(0,0,256,256);
   sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map:new THREE.CanvasTexture(gc), blending:THREE.AdditiveBlending, depthWrite:false, fog:false, transparent:true }));
-  sunGlow.scale.set(2600,2600,1); scene.add(sunGlow);
+  sunGlow.scale.set(2600,2600,1); sunGlow.renderOrder = -9; scene.add(sunGlow);
 
   floor = new THREE.Mesh(new THREE.PlaneGeometry(12000,12000), new THREE.ShaderMaterial({
     transparent:true, depthWrite:false, fog:false, blending:THREE.AdditiveBlending, extensions:{ derivatives:true },
@@ -459,10 +521,9 @@ function buildWindowFrame(){
   glass.position.z = -.02; glass.renderOrder = 45; canopy.add(glass);
 
   // ---- side rails: raked A-pillars running from the dash corners up to the ring
-  const ringSide = toRig(V3(HW+.02, .64, 0)), rails = [];
+  const ringSide = toRig(V3(HW+.02, .64, 0));
   [-1,1].forEach(side => {
     const pts = polyline([[side*1.36,-1.0,-.52],[side*1.5,-.55,-.95],[side*1.58,.02,-1.42],[side*1.55,.5,-1.86],[side*ringSide.x, ringSide.y, ringSide.z]], 36);
-    rails.push(pts);
     const Nx = V3(side,0,0);
     addMesh(sweep(pts, prof(.06,.042,.015), Nx, false), M.hull2);
     addMesh(sweep(pts, prof(.07,.012,.004, 0, .046), Nx, false), M.trim2);                        // outboard cap
@@ -472,12 +533,6 @@ function buildWindowFrame(){
     for (let k=0;k<3;k++){ const v = addMesh(new THREE.BoxGeometry(.03,.012,.11), M.dark); v.position.set(side*1.47, -.62 + k*.05, -.92 + k*.04); v.rotation.y = -side*.3; }
   });
 
-  // ---- canopy bow: one slim transverse rib between the rails, light strip toward the pilot
-  const railAt = z => { const p = rails[1]; for (let i=1;i<p.length;i++) if (p[i].z <= z) return p[i]; return p[p.length-1]; };
-  const ra = railAt(-1.3), bowPts = [];
-  for (let i=0;i<=40;i++){ const x = -ra.x + 2*ra.x*i/40; bowPts.push(V3(x, ra.y + .52*Math.cos(x/ra.x*Math.PI/2), -1.3 + .05*Math.cos(x/ra.x*Math.PI/2))); }
-  addMesh(sweep(bowPts, prof(.03,.052,.01), Z, false), M.hull2);
-  addMesh(sweep(bowPts, prof(.006,.005,0, 0, .056), Z, false), M.cyan);
   // ---- overhead longerons from the ring top toward the pilot
   [-1,1].forEach(side => {
     const top = toRig(V3(side*.55, HH, 0));
@@ -558,7 +613,7 @@ const CRUISE = 26, BOOST = 70, REVERSE = -8, AP_CRUISE = 9;
 const keys = { w:false, s:false, a:false, d:false, q:false, e:false, shift:false };
 const ptr = { x:VW/2, y:VH*.36, touchThrust:false, mouse:matchMedia('(pointer:fine)').matches };
 const yawPitch = new THREE.Vector2(), turnVel = new THREE.Vector2();
-let lastInput = performance.now(), launched = false, inXR = false;
+let lastInput = performance.now(), launched = false, inXR = false, apLock = false;
 let autopilot = true, apTarget = null, apState = 'cruising', apTimer = performance.now() + 8000, bank = 0;
 let targetNode = null, scanNode = null, scanProg = 0;
 const SCAN_R = 22;
@@ -632,6 +687,7 @@ function updateFlight(dt){
 // ---------------------------------------------------------------- XR input
 function pollXR(){
   xrThrust = xrBoost = xrBrake = false; yawPitch.set(0,0);
+  if (apLock) return;
   const s = renderer.xr.getSession(); if (!s) return;
   let any = false, fireNow = false;
   for (const src of s.inputSources){
@@ -656,6 +712,7 @@ function pollXR(){
 
 function poke(){
   lastInput = performance.now();
+  if (apLock) return;
   if (launched && autopilot){ autopilot = false; turnVel.set(0,0); log('MANUAL CONTROL'); }
 }
 
@@ -818,6 +875,9 @@ function completeObjective(){
 }
 // ---------------------------------------------------------------- sequencing drones (one earned per completed objective)
 const drones = [], DRONE_R = 9, DRONE_LEAD = 32, DRONE_MAX = 24;
+const DRONE_WALK_MIN = 7, DRONE_WALK_MAX = 16;
+const nextDroneWalk = () => DRONE_WALK_MIN + Math.random()*(DRONE_WALK_MAX-DRONE_WALK_MIN);
+const randomConnectedNode = () => connectedNodes[Math.floor(Math.random()*connectedNodes.length)] || null;
 const droneGeo = new THREE.OctahedronGeometry(.7, 0);
 const droneMat = new THREE.MeshPhysicalMaterial({ color:0x49dfff, metalness:.45, roughness:.16, clearcoat:1, clearcoatRoughness:.12, transparent:true, opacity:.62, depthWrite:false, toneMapped:false });
 const droneInnerMat = new THREE.MeshBasicMaterial({ color:0x00e5ff, transparent:true, opacity:.28, blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false });
@@ -849,7 +909,7 @@ function spawnDrone(){
   const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3).setUsage(THREE.DynamicDrawUsage));
   const beam = new THREE.Line(bg, beamMat);
   beam.frustumCulled = false; beam.visible = false; scene.add(m); scene.add(beam);
-  const d = { m, beam, ang:Math.random()*Math.PI*2, tilt:Math.random()*Math.PI, node:null, prog:0, velocity:new THREE.Vector3() };
+  const d = { m, beam, ang:Math.random()*Math.PI*2, tilt:Math.random()*Math.PI, node:null, prog:0, walkTimer:nextDroneWalk(), velocity:new THREE.Vector3() };
   dronePatrolOffset(d, drones.length).applyQuaternion(ship.quaternion);
   d.m.position.copy(ship.position).add(_v);
   drones.push(d);
@@ -859,6 +919,12 @@ function updateDrones(dt){
   for (let i=0;i<drones.length;i++){
     const d = drones[i];
     d.ang += dt*(1.2 + (i%3)*.3);
+    d.walkTimer -= dt;
+    if (d.walkTimer <= 0){
+      const n = d.node || randomConnectedNode();
+      if (n) startWalker(n);
+      d.walkTimer = nextDroneWalk();
+    }
     const orbit = dronePatrolOffset(d, i).applyQuaternion(ship.quaternion).add(ship.position);
     d.m.rotation.y += dt*3; d.m.rotation.x += dt*2;
     if (d.node && seqMark[d.node.id]){ takenBy[d.node.id] = 0; d.node = null; d.prog = 0; }
@@ -893,7 +959,7 @@ function newObjective(){
 // ---------------------------------------------------------------- audio: Brian Eno meets cyberpunk
 const _lp = new THREE.Vector3(), _lf = new THREE.Vector3(), _lu = new THREE.Vector3(), _lq = new THREE.Quaternion();
 const SFX = (() => {
-  let ac, master, sfxBus, spatBus, echoIn, fx, muted = false, droneGain, lastWalk = 0, started = false;
+  let ac, master, sfxBus, spatBus, echoIn, fx, sequenceBus, muted = false, droneGain, lastWalk = 0, started = false;
   const rnd = (a,b) => a + Math.random()*(b-a), mtof = m => 440*Math.pow(2,(m-69)/12);
   const noiseCache = new Map();
   function reverb(){
@@ -970,6 +1036,8 @@ const SFX = (() => {
     echoIn = ac.createGain(); const dl = ac.createDelay(2), dr = ac.createDelay(2), fb = ac.createGain(), ef = ac.createBiquadFilter(), mg = ac.createChannelMerger(2), eo = ac.createGain();
     dl.delayTime.value = .47; dr.delayTime.value = .71; fb.gain.value = .62; ef.type = 'lowpass'; ef.frequency.value = 2200; eo.gain.value = .9;
     echoIn.connect(dl); dl.connect(ef); ef.connect(dr); dr.connect(fb); fb.connect(dl); dl.connect(mg, 0, 0); dr.connect(mg, 0, 1); mg.connect(eo); eo.connect(master); eo.connect(fx);
+    sequenceBus = ac.createGain(); sequenceBus.gain.value = .25; sequenceBus.connect(sfxBus);
+    const sequenceEcho = ac.createGain(); sequenceEcho.gain.value = .9; sequenceBus.connect(sequenceEcho); sequenceEcho.connect(echoIn);
     droneGain = ac.createGain(); droneGain.gain.value = .8; droneGain.connect(master); droneGain.connect(fx);
     // background hum: detuned low saws through a slowly breathing lowpass + filtered air noise
     const hum = ac.createGain(); hum.gain.value = .07; const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 160; lp.Q.value = .8;
@@ -1000,9 +1068,15 @@ const SFX = (() => {
       const m = SCALE[(step*3 + Math.floor(rnd(0,3))) % SCALE.length] + 12 + (newNode ? 12 : 0), dec = newNode ? 2.2 : .9, d = pos ? spatial(pos, dec+.3, newNode ? .9 : .6) : null;
       tone('sine', mtof(m), mtof(m), now, .03, dec, newNode ? .16 : .08, d, rnd(-6,6));
       if (newNode){ tone('triangle', mtof(m+7), mtof(m+7), now+.07, .03, 1.4, .06, d); tone('sine', mtof(m-12), mtof(m-12)*1.5, now, .03, .8, .08, d); } },
-    bleep(kind, pos, droneCount){ if (!ok()) return; const t = ac.currentTime, dest = pos ? spatial(pos, .7, .12) : null, level = droneCount ? 1/droneCount : 1;
+    bleep(kind, pos, droneCount){ if (!ok()) return; const t = ac.currentTime, dest = pos ? spatial(pos, .7, .12) : kind === 'done' ? sequenceBus : sfxBus, level = droneCount ? 1/droneCount : 1;
       const seq = kind === 'done' ? [880, 1320, 1760, 2637] : kind === 'lock' ? [1568, 1568] : [1760, 1175];
-      seq.forEach((f,i) => tone('square', f, f, t+i*.07, .002, .05, .035*level, dest)); },
+      seq.forEach((f,i) => tone('square', f, f, t+i*.07, .002, .05, .035*level, dest));
+      if (kind === 'done'){
+        const n = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+        n.buffer = noiseBuf(.7); f.type = 'bandpass'; f.Q.value = .8;
+        f.frequency.setValueAtTime(3600, t); f.frequency.exponentialRampToValueAtTime(520, t+.38);
+        env(g, t, .008, .12*level, .42); n.connect(f); f.connect(g); g.connect(dest); n.start(t); n.stop(t+.7);
+      } },
     chatter(){ if (!ok()) return; const t = ac.currentTime, n = 2 + Math.floor(Math.random()*3);
       for (let i=0;i<n;i++) tone('square', 700 + Math.floor(rnd(0,8))*180, 700 + Math.floor(rnd(0,8))*180, t+i*.06, .002, .035, .02); },
     boost(on){ if (!ok()) return; const t = ac.currentTime;
@@ -1010,7 +1084,7 @@ const SFX = (() => {
       f.frequency.setValueAtTime(on ? 300 : 2500, t); f.frequency.exponentialRampToValueAtTime(on ? 2500 : 250, t+1); env(g, t, .3, .08, .8); n.connect(f); f.connect(g); g.connect(sfxBus); n.start(t); n.stop(t+1.2); }
   };
 })();
-addEventListener('keydown', e => { if (e.code === 'KeyM') SFX.toggle(); });
+addEventListener('keydown', e => { if (!apLock && e.code === 'KeyM') SFX.toggle(); });
 
 // ---------------------------------------------------------------- tracers & walkers
 const tracerGeo = new THREE.CylinderGeometry(.05,.05,5,8).rotateX(Math.PI/2), tracerGlow = new THREE.CylinderGeometry(.18,.18,5,8).rotateX(Math.PI/2);
@@ -1278,13 +1352,14 @@ function drawComms(force){
   finish(p);
 }
 function drawMission(){
-  const sig = `${score}|${sequenced.size}|${mapped.size}|${objective ? objective.ci + ':' + objective.have + ':' + objective.need + objective.type : ''}`;
+  const sig = `${score}|${drones.length}|${sequenced.size}|${mapped.size}|${objective ? objective.ci + ':' + objective.have + ':' + objective.need + objective.type : ''}`;
   if (sig === missionSig) return; missionSig = sig;
   const p = screens.mission, { ctx, w, h } = p; bg(p);
   let rk = RANKS[0][1]; RANKS.forEach(([s,n]) => { if (score >= s) rk = n; });
   const top = header(p, 'MISSION', rk, '#ffb347');
   ctx.textAlign = 'left'; ctx.font = `17px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('SCORE', 18, top + 20);
   ctx.font = `700 56px ${FD}`; ctx.fillStyle = '#fff'; ctx.shadowColor = '#ff2e88'; ctx.shadowBlur = 14; ctx.fillText(score.toLocaleString('en-US'), 18, top + 74); ctx.shadowBlur = 0;
+  ctx.font = `20px ${FM}`; ctx.fillStyle = '#00e5ff'; ctx.fillText(`DRONES ${drones.length}`, 18, top + 112);
   if (objective){ const s = SECT[objective.ci];
     ctx.font = `24px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('OBJECTIVE', 300, top + 20);
     ctx.font = `700 38px ${FD}`; ctx.fillStyle = s.css; ctx.fillText(`${objective.type === 'deploy' ? 'DEPLOY' : 'SEQUENCE'} ${objective.type === 'deploy' ? objective.need + ' WALKS' : objective.need}`, 300, top + 62, 402);
@@ -1463,6 +1538,7 @@ function start(data){
   makeRenderer();
   buildScenery();
   generateNetwork();
+  connectedNodes = nodes.filter(n => n.neighbors.length);
   buildHist();
   ship = new THREE.Object3D(); ship.position.set(0, 40, 520); scene.add(ship);
   rig = new THREE.Group(); ship.add(rig); rig.add(camera);
@@ -1482,7 +1558,9 @@ function start(data){
   if (data.pos) ship.position.fromArray(data.pos);
   if (data.quat) ship.quaternion.fromArray(data.quat);
   const hot = window.claude?.hot;
-  if (hot && typeof hot.snapshot === 'function') hot.snapshot(() => ({ score, sequenced:[...sequenced], objective, drones:drones.length, pos:ship.position.toArray(), quat:ship.quaternion.toArray(), launched }));
+  const snap = () => ({ score, sequenced:[...sequenced], objective, drones:drones.length, pos:ship.position.toArray(), quat:ship.quaternion.toArray(), launched });
+  window.__ppiSnapshot = snap; window.__ppiInXR = () => inXR;
+  if (hot && typeof hot.snapshot === 'function') hot.snapshot(snap);
   log(`LINK UP · ${N.toLocaleString('en-US')} PROTEINS · ${edgeCount.toLocaleString('en-US')} INTERACTIONS`);
   layout(); addEventListener('resize', layout);
   bindInput();
@@ -1517,12 +1595,13 @@ function setupVR(){
 
 function bindInput(){
   addEventListener('pointermove', e => {
+    if (apLock) return;
     if (e.pointerType === 'mouse'){ ptr.mouse = true; ptr.x = e.clientX; ptr.y = e.clientY; poke(); }
     else { ptr.x = e.clientX; ptr.y = e.clientY; }
   });
   addEventListener('pointerleave', e => { if (e.pointerType === 'mouse'){ ptr.x = VW/2; ptr.y = VH*.36; } });
   addEventListener('pointerdown', e => {
-    if (!launched || e.target.closest('button')) return;
+    if (!launched || apLock || e.target.closest('button')) return;
     SFX.start(); poke();
     if (e.pointerType === 'mouse'){ ptr.mouse = true; ptr.x = e.clientX; ptr.y = e.clientY; fire(); } else { ptr.x = e.clientX; ptr.y = e.clientY; ptr.touchThrust = true; }
   });
@@ -1530,6 +1609,7 @@ function bindInput(){
   addEventListener('pointercancel', () => { ptr.touchThrust = false; });
   addEventListener('keydown', e => {
     if (!launched){ if ((e.code === 'Enter' || e.code === 'Space') && !$('btn-launch').disabled){ launch(); e.preventDefault(); } return; }
+    if (apLock) return;
     poke();
     switch (e.code){
       case 'KeyW': case 'ArrowUp': keys.w = true; break;
@@ -1546,8 +1626,18 @@ function bindInput(){
   });
   addEventListener('keyup', e => { switch (e.code){ case 'KeyW': case 'ArrowUp': keys.w = false; break; case 'KeyS': case 'ArrowDown': keys.s = false; break; case 'KeyA': keys.a = false; break; case 'KeyD': keys.d = false; break; case 'KeyQ': keys.q = false; break; case 'KeyE': keys.e = false; break; case 'ShiftLeft': case 'ShiftRight': keys.shift = false; break; } });
   $('btn-launch').addEventListener('click', launch);
-  $('t-fire').addEventListener('pointerdown', e => { e.preventDefault(); poke(); fire(); });
-  $('t-boost').addEventListener('pointerdown', e => { e.preventDefault(); poke(); keys.shift = true; ptr.touchThrust = true; });
+  $('ap-btn').addEventListener('click', () => {
+    apLock = !apLock;
+    const b = $('ap-btn'); b.setAttribute('aria-pressed', apLock); b.textContent = 'AUTOPILOT: ' + (apLock ? 'ON' : 'OFF');
+    $('t-fire').disabled = $('t-boost').disabled = apLock;
+    if (apLock){
+      for (const k in keys) keys[k] = false;
+      ptr.touchThrust = false;
+      if (launched && !autopilot){ autopilot = true; apTarget = null; apState = 'cruising'; apTimer = performance.now() + 3000; log('AUTOPILOT LOCKED'); }
+    } else { lastInput = performance.now(); if (launched) log('CONTROLS RESTORED'); }
+  });
+  $('t-fire').addEventListener('pointerdown', e => { e.preventDefault(); if (apLock) return; poke(); fire(); });
+  $('t-boost').addEventListener('pointerdown', e => { e.preventDefault(); if (apLock) return; poke(); keys.shift = true; ptr.touchThrust = true; });
   $('t-boost').addEventListener('pointerup', () => { keys.shift = false; ptr.touchThrust = false; });
 }
 
@@ -1592,7 +1682,7 @@ function loop(){
 }
 
 const hot = window.claude?.hot;
-if (hot && typeof hot.ready === 'function') hot.ready(start); else start(hot?.data ?? {});
+if (hot && typeof hot.ready === 'function') hot.ready(start); else start(hot?.data ?? window.__ppiHotData ?? {});
 })();
 </script>
 </body></html>
