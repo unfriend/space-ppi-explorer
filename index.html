@@ -93,7 +93,7 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
     </div>
     <p class="vrnote" id="vr-note">Checking for a VR headset…</p>
     <div class="keys">
-      <div><b>MOUSE</b>steer</div><div><b>W / S</b>thrust · brake</div><div><b>Q / E</b>strafe</div><div><b>A / D</b>yaw</div><div><b>J L / ◀ ▶</b>roll</div><div><b>I K / ▲ ▼</b>pitch</div><div><b>SHIFT</b>overdrive</div>
+      <div><b>MOUSE</b>steer</div><div><b>W / S</b>thrust · brake</div><div><b>Q / E</b>strafe</div><div><b>A / D</b>yaw</div><div><b>J L / ◀ ▶</b>roll</div><div><b>I K / ▲ ▼ / 2 3 / Z X</b>pitch</div><div><b>SHIFT</b>overdrive</div>
       <div><b>SPACE / CLICK</b>fire tracer</div><div><b>H</b>help</div><div><b>B</b>bloom on / off</div><div><b>M</b>mute</div>
     </div>
   </div>
@@ -1681,8 +1681,8 @@ function bindInput(){
       case 'KeyS': keys.s = true; break;
       case 'ArrowLeft': case 'KeyJ': keys.rl = true; e.preventDefault(); break;
       case 'ArrowRight': case 'KeyL': keys.rr = true; e.preventDefault(); break;
-      case 'ArrowUp': case 'KeyI': keys.pd = true; e.preventDefault(); break;
-      case 'ArrowDown': case 'KeyK': keys.pu = true; e.preventDefault(); break;
+      case 'ArrowUp': case 'KeyI': case 'Digit2': case 'Digit3': keys.pd = true; e.preventDefault(); break;
+      case 'ArrowDown': case 'KeyK': case 'KeyZ': case 'KeyX': keys.pu = true; e.preventDefault(); break;
       case 'KeyA': keys.a = true; break;
       case 'KeyD': keys.d = true; break;
       case 'KeyQ': keys.q = true; break;
@@ -1693,7 +1693,7 @@ function bindInput(){
       case 'KeyB': bloomOn = !bloomOn; log(bloomOn ? 'BLOOM ON' : 'BLOOM OFF'); break;
     }
   });
-  addEventListener('keyup', e => { switch (e.code){ case 'KeyW': keys.w = false; break; case 'KeyS': keys.s = false; break; case 'ArrowLeft': case 'KeyJ': keys.rl = false; break; case 'ArrowRight': case 'KeyL': keys.rr = false; break; case 'ArrowUp': case 'KeyI': keys.pd = false; break; case 'ArrowDown': case 'KeyK': keys.pu = false; break; case 'KeyA': keys.a = false; break; case 'KeyD': keys.d = false; break; case 'KeyQ': keys.q = false; break; case 'KeyE': keys.e = false; break; case 'ShiftLeft': case 'ShiftRight': keys.shift = false; break; } });
+  addEventListener('keyup', e => { switch (e.code){ case 'KeyW': keys.w = false; break; case 'KeyS': keys.s = false; break; case 'ArrowLeft': case 'KeyJ': keys.rl = false; break; case 'ArrowRight': case 'KeyL': keys.rr = false; break; case 'ArrowUp': case 'KeyI': case 'Digit2': case 'Digit3': keys.pd = false; break; case 'ArrowDown': case 'KeyK': case 'KeyZ': case 'KeyX': keys.pu = false; break; case 'KeyA': keys.a = false; break; case 'KeyD': keys.d = false; break; case 'KeyQ': keys.q = false; break; case 'KeyE': keys.e = false; break; case 'ShiftLeft': case 'ShiftRight': keys.shift = false; break; } });
   $('btn-launch').addEventListener('click', launch);
   $('ap-btn').addEventListener('click', () => {
     apLock = !apLock;
