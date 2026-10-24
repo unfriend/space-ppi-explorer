@@ -1852,7 +1852,7 @@ const Net = (() => {
 
   function register(c, out){
     const id = c.peer, ini = out ? peer.id : id, old = conns.get(id);
-    if (old && old.open){ if (old.ini <= ini){ c.close(); return; } old.close(); }
+    if (old){ if (old.ini <= ini){ c.close(); return; } conns.delete(id); old.close(); }   // same rule on both ends, even if not open yet
     c.ini = ini; conns.set(id, c);
     const up = () => { if (conns.get(id) === c) hello(c); };
     if (c.open) up(); else c.on('open', up);
@@ -1867,29 +1867,39 @@ const Net = (() => {
     const lp = new Peer('ppi1-' + ROOM); lobby = lp;
     lp.on('connection', c => c.on('open', () => { c.send({ peers:[peer.id, ...conns.keys()] }); setTimeout(() => c.close(), 1500); }));
     lp.on('error', e => { try { lp.destroy(); } catch (x) {} if (lobby === lp) lobby = null;
-      if (e.type === 'unavailable-id' && !conns.size && !started){ started = true; introduce(); } });
+      if (e.type === 'unavailable-id') introduce(); });
     lp.on('disconnected', () => { try { lp.destroy(); } catch (e) {} });
     lp.on('close', () => { if (lobby === lp) lobby = null; });
   }
   function introduce(){
+    if (started) return; started = true;
     const c = peer.connect('ppi1-' + ROOM, { reliable:true });
-    let got = false;
-    c.on('data', m => { if (m && Array.isArray(m.peers)){ got = true; m.peers.slice(0, 64).forEach(id => typeof id === 'string' && dial(id)); } });
-    c.on('close', () => { if (!got) started = false; });
+    c.on('data', m => { if (m && Array.isArray(m.peers)) m.peers.slice(0, 64).forEach(id => typeof id === 'string' && dial(id)); });
+    c.on('close', () => { started = false; });
     c.on('error', () => { started = false; });
+    setTimeout(() => { started = false; }, 5000);
   }
 
   return {
     init(){
       if (!ROOM || typeof Peer === 'undefined'){ if (ROOM) log('MULTIPLAYER OFFLINE · PEERJS FAILED TO LOAD'); return; }
       ui();
-      peer = new Peer();
-      peer.on('open', () => claimLobby());
-      peer.on('connection', c => register(c, false));
-      peer.on('error', e => { if (e.type === 'peer-unavailable') started = false; else log('NET · ' + String(e.type || 'ERROR').toUpperCase()); });
-      peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) {} });
-      // retry: reclaim a freed lobby id, and keep asking for peers until we are connected to someone
-      setInterval(() => { if (!peer.open) return; claimLobby(); if (!conns.size && !started && !(lobby && lobby.open)){ started = true; introduce(); } }, 8000);
+      const mk = () => {
+        const p = peer = new Peer();
+        p.on('open', () => { claimLobby(); introduce(); });
+        p.on('connection', c => register(c, false));
+        p.on('error', e => { if (e.type !== 'peer-unavailable') log('NET · ' + String(e.type || 'ERROR').toUpperCase()); });
+        p.on('disconnected', () => { try { p.reconnect(); } catch (e) {} });
+        p.on('close', () => {   // broker session died: rebuild everything
+          if (peer !== p) return;
+          conns.forEach(c => { try { c.close(); } catch (e) {} }); conns.clear(); remotes.forEach((r, id) => dropRemote(id));
+          if (lobby){ try { lobby.destroy(); } catch (e) {} lobby = null; }
+          setTimeout(mk, 2000);
+        });
+      };
+      mk();
+      // keep trying: reclaim a freed lobby id, and re-ask the lobby for peers so dropped links get re-dialed
+      setInterval(() => { if (!peer || !peer.open) return; claimLobby(); if (!(lobby && lobby.open)) introduce(); }, 6000);
     },
     applying(v){ applying = v; },
     walker(id, s, k){ if (peer) send({ t:'w', id, s, k }); },
