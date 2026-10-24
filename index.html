@@ -71,12 +71,6 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 #hud .track{position:relative;height:14px;margin-top:6px;background:rgba(166,107,255,.2);border:1px solid rgba(166,107,255,.45)}
 #hud .track i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--pink));box-shadow:0 0 10px var(--pink)}
 #hud .track b{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--sun)}
-#net{margin-top:8px;font-size:11px;letter-spacing:.2em;color:var(--dim);display:none}
-#net b{color:var(--cyan);font-weight:400}
-#mp{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;font-size:11px;letter-spacing:.14em;color:var(--dim)}
-#mp input{font:inherit;color:#fff;background:rgba(7,1,15,.7);border:1px solid rgba(166,107,255,.45);padding:7px 10px;width:14ch;text-transform:uppercase;letter-spacing:.14em}
-#mp button{font:inherit;color:var(--cyan);background:rgba(0,229,255,.1);border:1px solid var(--cyan);padding:7px 12px;cursor:pointer;letter-spacing:.14em}
-#mp button:focus-visible,#mp input:focus-visible{outline:2px solid #fff;outline-offset:2px}
 #lvl{position:fixed;inset:0;z-index:25;display:none;place-items:center;text-align:center;background:rgba(7,1,15,.82);font-family:var(--f-wide);cursor:pointer}
 #lvl.on{display:grid}
 #lvl h2{margin:0;font-size:clamp(34px,9vw,96px);letter-spacing:.08em;color:#fff;text-shadow:0 0 28px var(--pink)}
@@ -85,7 +79,7 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 
 <div id="stage"></div>
 <div id="grain"></div>
-<div id="hud"><div class="lv" id="hud-lv"></div><div class="pc" id="hud-pc">0.0%</div><div class="tg" id="hud-tg"></div><div id="net"></div><div class="track"><i id="hud-bar"></i><b id="hud-tick"></b></div></div>
+<div id="hud"><div class="lv" id="hud-lv"></div><div class="pc" id="hud-pc">0.0%</div><div class="tg" id="hud-tg"></div><div class="track"><i id="hud-bar"></i><b id="hud-tick"></b></div></div>
 <div id="lvl"><div><h2 id="lvl-h"></h2><p id="lvl-p"></p></div></div>
 <div id="splash">
   <div class="card">
@@ -97,7 +91,6 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
       <button class="go" id="btn-launch" type="button" disabled>LAUNCH</button>
       <button class="go vr" id="btn-vr" type="button" disabled>ENTER VR</button>
     </div>
-    <div id="mp"><span id="mp-lbl">MULTIPLAYER</span><input id="mp-room" maxlength="24" placeholder="ROOM CODE" autocomplete="off" spellcheck="false" aria-label="Room code"><button id="mp-join" type="button">JOIN / CREATE</button><button id="mp-copy" type="button" hidden>COPY LINK</button><button id="mp-leave" type="button" hidden>LEAVE</button></div>
     <p class="vrnote" id="vr-note">Checking for a VR headset…</p>
     <div class="keys">
       <div><b>MOUSE</b>steer</div><div><b>W / S</b>thrust · brake</div><div><b>Q / E</b>strafe</div><div><b>A / D</b>yaw</div><div><b>J L / ◀ ▶</b>roll</div><div><b>I K / ▲ ▼ / 2 3 / Z X</b>pitch</div><div><b>SHIFT</b>overdrive</div>
@@ -118,7 +111,6 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 /* Hot update: poll for a new deploy, then reload in place carrying the flight state (score, drones, sequenced proteins, pose).
    Only if the new build fails to come up does the player get a manual button. */
@@ -208,12 +200,8 @@ const N = 16000, CELL = 28, MODS = 12;
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 const LEVEL_TARGETS = [0.8, 0.9, 1.0];
-const ROOM = (location.hash.match(/room=([A-Za-z0-9_-]{1,24})/) || [])[1] || null;
-const roomSeed = lv => { let h = 5381; const s = ROOM + ':' + lv; for (let i=0;i<s.length;i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h >>> 0; };
 const GAME = (() => { let g = null; try { g = JSON.parse(sessionStorage.getItem('ppi-game')); } catch (e) {}
-  g = g && g.level >= 1 && g.level <= 3 ? g : { level:1, seed:20261021, score:0, launched:false };
-  if (ROOM) g.seed = roomSeed(g.level);   // everyone in a room flies the same network
-  return g; })();
+  return g && g.level >= 1 && g.level <= 3 ? g : { level:1, seed:20261021, score:0, launched:false }; })();
 const srand = mulberry32(GAME.seed);
 const gauss = () => { let u = 0, v = 0; while (!u) u = srand(); while (!v) v = srand(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
 const rgba = (hex,a) => `rgba(${hex>>16&255},${hex>>8&255},${hex&255},${a})`;
@@ -651,7 +639,6 @@ let autopilot = true, apTarget = null, apState = 'cruising', apTimer = performan
 let targetNode = null, scanNode = null, scanProg = 0;
 const SCAN_R = 22;
 let score = 0, objective = null;
-const addScore = d => { score += d; Net.score(d); };
 const sequenced = new Set(), mapped = new Set(), activity = SECT.map(() => 0), mappedCnt = SECT.map(() => 0), seqCnt = SECT.map(() => 0);
 const activeHolos = new Map(), projectiles = [], walkers = [];
 const telemetry = { spd:[], wlk:[] };
@@ -664,7 +651,7 @@ let xrThrust = false, xrBoost = false, xrBrake = false, xrFirePrev = false;
 function log(msg){ SFX.chatter(); const at = performance.now(); commsLog.push({ msg, at }); if (commsLog.length > 8) commsLog.shift(); commsAnimUntil = at + msg.length*22 + 300; }
 function markMapped(n){
   if (mapped.has(n.id)) return false;
-  mapped.add(n.id); mappedCnt[n.ci]++; Net.mapped(n.id);
+  mapped.add(n.id); mappedCnt[n.ci]++;
   n.disp.setRGB(.6,.6,.64);
   if (nodesGeo){ const ca = nodesGeo.attributes.aColor; ca.setXYZ(n.id, n.disp.r, n.disp.g, n.disp.b); ca.needsUpdate = true; }
   if (holo && n.id % 8 === 0){ holo.mapped.setX(n.id/8, 1); holo.mapped.needsUpdate = true; }
@@ -916,10 +903,10 @@ function markSequenced(n, live, dronePos, droneCount){
   let pts = 100 + n.degree*8; activity[n.ci] += 6;
   if (objective && objective.type !== 'deploy' && n.ci === objective.ci){ pts += 150; objective.have++;
     if (objective.have >= objective.need) completeObjective(); }
-  addScore(pts); log(`SEQUENCED ${n.name} · k=${n.degree} · +${pts}`);
+  score += pts; log(`SEQUENCED ${n.name} · k=${n.degree} · +${pts}`);
 }
 function completeObjective(){
-  addScore(500); log(`OBJECTIVE COMPLETE +500 · ${SECT[objective.ci].label}`); spawnDrone(); newObjective();
+  score += 500; log(`OBJECTIVE COMPLETE +500 · ${SECT[objective.ci].label}`); spawnDrone(); newObjective();
 }
 // ---------------------------------------------------------------- sequencing drones (one earned per completed objective)
 const drones = [], DRONE_R = 9, DRONE_LEAD = 32, DRONE_MAX = 24;
@@ -1143,13 +1130,6 @@ function fire(){
   gunSide *= -1; p.position.copy(ship.localToWorld(_v.set(gunSide*1.6, -1.2, -3)));
   p.quaternion.copy(ship.quaternion); p.userData.vel = new THREE.Vector3(0,0,-1).applyQuaternion(ship.quaternion).multiplyScalar(240);
   p.userData.life = 2.4; scene.add(p); projectiles.push(p); SFX.fire(p.position);
-  Net.fired(p.position, p.quaternion);
-}
-function fireRemote(pos, quat){
-  const p = new THREE.Mesh(tracerGeo, tracerMat);
-  p.add(new THREE.Mesh(tracerGlow, tracerGlowMat));
-  p.position.fromArray(pos); p.quaternion.fromArray(quat); p.userData.vel = new THREE.Vector3(0,0,-1).applyQuaternion(p.quaternion).multiplyScalar(240);
-  p.userData.life = 2.4; p.userData.remote = true; scene.add(p); projectiles.push(p); SFX.fire(p.position);
 }
 let hitId = -1; const onHit = j => { if (hitId < 0) hitId = j; };
 function updateProjectiles(dt){
@@ -1158,27 +1138,23 @@ function updateProjectiles(dt){
     hitId = -1; forNear(p.position.x, p.position.y, p.position.z, 5, onHit);
     if (hitId >= 0 || p.userData.life <= 0){
       scene.remove(p); projectiles.splice(i,1);
-      if (hitId >= 0 && !p.userData.remote){ const n = nodes[hitId]; startWalker(n); SFX.hit(n.position); addScore(10); log(`TRACER HIT ${n.name} · WALK DEPLOYED`); }
+      if (hitId >= 0){ const n = nodes[hitId]; startWalker(n); SFX.hit(n.position); score += 10; log(`TRACER HIT ${n.name} · WALK DEPLOYED`); }
     }
   }
 }
 const walkerGeo = new THREE.SphereGeometry(.45,10,8), walkerMat = new THREE.MeshBasicMaterial({ color:0xffffff, toneMapped:false });
-function startWalker(n, seed, steps, remote){
-  if (seed === undefined){ seed = (Math.random()*4294967295)>>>0; steps = 20 + Math.floor(Math.random()*24); Net.walker(n.id, seed, steps); }
-  if (remote) Net.applying(true);
-  if (markMapped(n) && !remote) addScore(3);
-  if (remote) Net.applying(false);
-  const rng = mulberry32(seed);
+function startWalker(n){
+  if (markMapped(n)) score += 3;
   const m = new THREE.Mesh(walkerGeo, walkerMat); m.position.copy(n.position); scene.add(m);
   const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(160*3), 3).setUsage(THREE.DynamicDrawUsage)); tg.setDrawRange(0,0);
   const trail = new THREE.Line(tg, new THREE.LineBasicMaterial({ color:n.colorHex, transparent:true, blending:THREE.AdditiveBlending, toneMapped:false })); trail.frustumCulled = false; scene.add(trail);
-  walkers.push({ mesh:m, trail, count:0, cur:n, next:pickN(n, rng), prog:0, steps, rng, remote });
-  if (!remote && objective && objective.type === 'deploy' && n.ci === objective.ci){
+  walkers.push({ mesh:m, trail, count:0, cur:n, next:pickN(n), prog:0, steps:20 + Math.floor(Math.random()*24) });
+  if (objective && objective.type === 'deploy' && n.ci === objective.ci){
     objective.have++;
     if (objective.have >= objective.need) completeObjective();
   }
 }
-const pickN = (n, rng) => n.neighbors.length ? n.neighbors[Math.floor(rng()*n.neighbors.length)] : null;
+const pickN = n => n.neighbors.length ? n.neighbors[Math.floor(Math.random()*n.neighbors.length)] : null;
 function killWalker(i){ const w = walkers[i]; scene.remove(w.mesh); scene.remove(w.trail); w.trail.geometry.dispose(); w.trail.material.dispose(); walkers.splice(i,1); }
 function bounceWalkerOffShip(w){
   const radius = SHIP_SHIELD_RADIUS + .45, m = w.mesh.position;
@@ -1186,6 +1162,8 @@ function bounceWalkerOffShip(w){
   if (d2 >= radius*radius) return;
   // ship may overtake a walker, so test the current position rather than the segment
   const out = d2 > 1e-6 ? _v.normalize() : _v.set(0,1,0);
+  _v2.copy(w.next.position).sub(w.cur.position);
+  if (_v2.dot(out) < 0){ const prev = w.cur; w.cur = w.next; w.next = prev; w.prog = 1-w.prog; }
   m.copy(ship.position).addScaledVector(out, radius);
 }
 function updateWalkers(dt){
@@ -1193,12 +1171,10 @@ function updateWalkers(dt){
     const w = walkers[i]; if (!w.next){ killWalker(i); continue; }
     w.prog += dt*1.6;
     if (w.prog >= 1){ w.prog = 0; w.cur = w.next; w.steps--;
-      if (w.remote) Net.applying(true);
-      const fresh = markMapped(w.cur); if (fresh && !w.remote) addScore(3);
-      if (w.remote) Net.applying(false);
+      const fresh = markMapped(w.cur); if (fresh) score += 3;
       SFX.node(fresh, w.steps, w.cur.position);
       activity[w.cur.ci] += 1;
-      if (w.steps <= 0){ killWalker(i); continue; } w.next = pickN(w.cur, w.rng); continue; }
+      if (w.steps <= 0){ killWalker(i); continue; } w.next = pickN(w.cur); continue; }
     w.mesh.position.copy(w.cur.position).lerp(w.next.position, w.prog);
     bounceWalkerOffShip(w);
     const a = w.trail.geometry.attributes.position, arr = a.array;
@@ -1635,20 +1611,7 @@ function start(data){
   clock = new THREE.Clock();
   renderer.setAnimationLoop(loop);
   setupVR();
-  Net.init(); bindRoomUI();
   if (data.launched){ bootT = 1; launch(); }
-}
-
-function bindRoomUI(){
-  const inp = $('mp-room'), join = $('mp-join'), copy = $('mp-copy'), leave = $('mp-leave');
-  const go = code => { try { sessionStorage.removeItem('ppi-game'); sessionStorage.removeItem('ppi-hot'); } catch (e) {}
-    location.hash = code ? 'room=' + code : ''; location.reload(); };
-  if (ROOM){ inp.value = ROOM; inp.readOnly = true; join.hidden = true; copy.hidden = false; leave.hidden = false; $('mp-lbl').textContent = 'MULTIPLAYER · ROOM'; }
-  join.onclick = () => { const c = inp.value.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24) || Math.random().toString(36).slice(2, 8).toUpperCase(); go(c); };
-  inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') join.onclick(); };
-  inp.onkeyup = e => e.stopPropagation();
-  copy.onclick = () => { const u = location.href.split('#')[0] + '#room=' + ROOM; (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => { copy.textContent = 'COPIED'; setTimeout(() => copy.textContent = 'COPY LINK', 1500); }, () => prompt('Share this link', u)); };
-  leave.onclick = () => go('');
 }
 
 let levelBusy = false;
@@ -1667,7 +1630,7 @@ function advanceLevel(){
   $('lvl').classList.add('on');
   let done = false;
   const go = () => { if (done) return; done = true;
-    try { sessionStorage.setItem('ppi-game', JSON.stringify({ level:next, seed:ROOM ? roomSeed(next) : (Math.random()*4294967295)>>>0, score:win ? 0 : score, launched:true })); sessionStorage.removeItem('ppi-hot'); } catch (e) {}
+    try { sessionStorage.setItem('ppi-game', JSON.stringify({ level:next, seed:(Math.random()*4294967295)>>>0, score:win ? 0 : score, launched:true })); sessionStorage.removeItem('ppi-hot'); } catch (e) {}
     location.reload(); };
   $('lvl').onclick = go; setTimeout(go, win ? 8000 : 4000);
 }
@@ -1770,7 +1733,6 @@ function loop(){
   if (frame % 3 === 1) SFX.listen(camera);
   updateHolograms(dt);
   updateDrones(dt);
-  Net.update(dt, t);
   const decay = Math.pow(.6, dt); for (let i=0;i<activity.length;i++) activity[i] *= decay;
   telAcc += dt; if (telAcc > .1){ telAcc = 0; telemetry.spd.push(speed); telemetry.wlk.push(walkers.length); if (telemetry.spd.length > 150){ telemetry.spd.shift(); telemetry.wlk.shift(); } }
   sky.position.copy(ship.position); stars.position.copy(ship.position);
@@ -1792,120 +1754,6 @@ function loop(){
   if (frame % 30 === 7) computeMotifs();
   if (composer && bloomOn && !renderer.xr.isPresenting) composer.render(); else renderer.render(scene, camera);
 }
-
-// ================================================================ multiplayer (PeerJS full mesh)
-/* Room code -> one shared seed, so every pilot flies the same network. Peers find each other through a well-known "lobby" id that any
-   connected pilot may hold (re-claimed every 8s if it frees up); the lobby holder only hands out the list of mesh peer ids, then each
-   newcomer dials every one of them directly. Each pair keeps exactly one connection (the one initiated by the lower id wins). */
-const Net = (() => {
-  const SEND_MS = 100, remotes = new Map(), conns = new Map();
-  const myName = 'PILOT-' + Math.random().toString(36).slice(2, 6).toUpperCase();
-  let peer = null, lobby = null, started = false, sendAcc = 0, pend = [], pendAcc = 0, applying = false;
-  const shipGeo = new THREE.ConeGeometry(1.3, 5, 4), glowTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
-    const g = x.createRadialGradient(32,32,0,32,32,32); g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(1,'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0,0,64,64); return new THREE.CanvasTexture(c); })();
-  const ui = () => { const el = $('net'); if (!ROOM) return; el.style.display = 'block'; el.innerHTML = `ROOM <b>${ROOM}</b> · <b>${remotes.size + 1}</b> PILOT${remotes.size ? 'S' : ''}`; };
-  const hue = id => { let h = 0; for (let i=0;i<id.length;i++) h = (h*31 + id.charCodeAt(i)) % 360; return h; };
-
-  function makeRemote(id, name){
-    const col = new THREE.Color().setHSL(hue(id)/360, .9, .6), g = new THREE.Group();
-    const body = new THREE.Mesh(shipGeo, new THREE.MeshBasicMaterial({ color:col, toneMapped:false })); body.rotation.x = -Math.PI/2; g.add(body);
-    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map:glowTex, color:col, blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false })); glow.scale.set(14,14,1); g.add(glow);
-    const c = document.createElement('canvas'); c.width = 256; c.height = 48; const x = c.getContext('2d');
-    x.font = `22px ${FM}`; x.textAlign = 'center'; x.fillStyle = '#' + col.getHexString(); x.fillText(name, 128, 32);
-    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map:new THREE.CanvasTexture(c), transparent:true, depthTest:false, toneMapped:false })); label.scale.set(24,4.5,1); label.position.y = 5; label.renderOrder = 5; g.add(label);
-    g.visible = false; scene.add(g);
-    return { id, name, g, tp:new THREE.Vector3(), tq:new THREE.Quaternion(), seen:false };
-  }
-  function dropRemote(id){
-    const r = remotes.get(id); if (!r) return;
-    scene.remove(r.g); r.g.traverse(o => { if (o.material){ if (o.material.map && o.material.map !== glowTex) o.material.map.dispose(); o.material.dispose(); } });
-    remotes.delete(id); ui(); log(`${r.name} LEFT THE SECTOR`);
-  }
-  function send(msg){ conns.forEach(c => { if (c.open) c.send(msg); }); }
-
-  function onData(c, m){
-    if (!m || typeof m !== 'object') return;
-    if (m.t === 'h'){
-      if (typeof m.l === 'number' && m.l > GAME.level && m.l <= 3){   // someone is further along: join their level
-        try { sessionStorage.setItem('ppi-game', JSON.stringify({ level:m.l, seed:roomSeed(m.l), score, launched })); sessionStorage.removeItem('ppi-hot'); } catch (e) {}
-        location.reload(); return;
-      }
-      let r = remotes.get(c.peer);
-      if (!r){ r = makeRemote(c.peer, String(m.n || 'PILOT').slice(0, 16)); remotes.set(c.peer, r); ui(); log(`${r.name} JOINED THE SECTOR`); SFX.bleep('done'); }
-      if (m.l === GAME.level && Array.isArray(m.m)) applyMapped(m.m);
-      if (!r.scored){ r.scored = true; if (typeof m.s === 'number' && m.s > score) score = m.s; }
-    } else if (m.t === 'p' && Array.isArray(m.v) && m.v.length >= 7){
-      const r = remotes.get(c.peer); if (!r) return;
-      r.tp.set(m.v[0], m.v[1], m.v[2]); r.tq.set(m.v[3], m.v[4], m.v[5], m.v[6]);
-      if (!r.seen){ r.seen = true; r.g.position.copy(r.tp); r.g.quaternion.copy(r.tq); r.g.visible = true; }
-    } else if (m.t === 'f' && Array.isArray(m.p) && Array.isArray(m.q) && remotes.has(c.peer)) fireRemote(m.p, m.q);
-    else if (m.t === 'm' && Array.isArray(m.m)) applyMapped(m.m);
-    else if (m.t === 'w' && remotes.has(c.peer) && nodes[m.id] && nodes[m.id].neighbors && Number.isFinite(m.s) && Number.isFinite(m.k)) startWalker(nodes[m.id], m.s >>> 0, clamp(m.k | 0, 1, 80), true);
-    else if (m.t === 's' && Number.isFinite(m.d) && remotes.has(c.peer)) score += clamp(m.d, 0, 1000);
-  }
-  function applyMapped(ids){
-    applying = true;
-    for (let i=0;i<ids.length;i++){ const n = nodes[ids[i]]; if (n) markMapped(n); }
-    applying = false;
-  }
-  function hello(c){ c.send({ t:'h', n:myName, l:GAME.level, s:score, m:[...mapped] }); }
-
-  function register(c, out){
-    const id = c.peer, ini = out ? peer.id : id, old = conns.get(id);
-    if (old && old.open){ if (old.ini <= ini){ c.close(); return; } old.close(); }
-    c.ini = ini; conns.set(id, c);
-    const up = () => { if (conns.get(id) === c) hello(c); };
-    if (c.open) up(); else c.on('open', up);
-    c.on('data', m => { if (conns.get(id) === c) onData(c, m); });
-    const gone = () => { if (conns.get(id) === c){ conns.delete(id); dropRemote(id); } };
-    c.on('close', gone); c.on('error', gone);
-  }
-  function dial(id){ if (id === peer.id || conns.has(id)) return; register(peer.connect(id, { reliable:true }), true); }
-
-  function claimLobby(){
-    if (lobby || !peer || peer.destroyed) return;
-    const lp = new Peer('ppi1-' + ROOM); lobby = lp;
-    lp.on('connection', c => c.on('open', () => { c.send({ peers:[peer.id, ...conns.keys()] }); setTimeout(() => c.close(), 1500); }));
-    lp.on('error', e => { try { lp.destroy(); } catch (x) {} if (lobby === lp) lobby = null;
-      if (e.type === 'unavailable-id' && !conns.size && !started){ started = true; introduce(); } });
-    lp.on('disconnected', () => { try { lp.destroy(); } catch (e) {} });
-    lp.on('close', () => { if (lobby === lp) lobby = null; });
-  }
-  function introduce(){
-    const c = peer.connect('ppi1-' + ROOM, { reliable:true });
-    let got = false;
-    c.on('data', m => { if (m && Array.isArray(m.peers)){ got = true; m.peers.slice(0, 64).forEach(id => typeof id === 'string' && dial(id)); } });
-    c.on('close', () => { if (!got) started = false; });
-    c.on('error', () => { started = false; });
-  }
-
-  return {
-    init(){
-      if (!ROOM || typeof Peer === 'undefined'){ if (ROOM) log('MULTIPLAYER OFFLINE · PEERJS FAILED TO LOAD'); return; }
-      ui();
-      peer = new Peer();
-      peer.on('open', () => claimLobby());
-      peer.on('connection', c => register(c, false));
-      peer.on('error', e => { if (e.type === 'peer-unavailable') started = false; else log('NET · ' + String(e.type || 'ERROR').toUpperCase()); });
-      peer.on('disconnected', () => { try { peer.reconnect(); } catch (e) {} });
-      // retry: reclaim a freed lobby id, and keep asking for peers until we are connected to someone
-      setInterval(() => { if (!peer.open) return; claimLobby(); if (!conns.size && !started && !(lobby && lobby.open)){ started = true; introduce(); } }, 8000);
-    },
-    applying(v){ applying = v; },
-    walker(id, s, k){ if (peer) send({ t:'w', id, s, k }); },
-    score(d){ if (peer && !applying && d) send({ t:'s', d }); },
-    mapped(id){ if (!peer || applying) return; pend.push(id); },
-    fired(p, q){ if (peer) send({ t:'f', p:p.toArray(), q:q.toArray() }); },
-    update(dt){
-      if (!peer) return;
-      remotes.forEach(r => { if (!r.seen) return; const k = damp(10, dt); r.g.position.lerp(r.tp, k); r.g.quaternion.slerp(r.tq, k); });
-      sendAcc += dt*1000; pendAcc += dt*1000;
-      if (sendAcc >= SEND_MS && conns.size){ sendAcc = 0; send({ t:'p', v:[...ship.position.toArray(), ...ship.quaternion.toArray()] }); }
-      if (pendAcc >= 400){ pendAcc = 0; if (pend.length){ if (conns.size) send({ t:'m', m:pend }); pend = []; } }
-    },
-    get room(){ return ROOM; }
-  };
-})();
 
 const hot = window.claude?.hot;
 if (hot && typeof hot.ready === 'function') hot.ready(start); else start(hot?.data ?? window.__ppiHotData ?? {});
