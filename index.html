@@ -631,7 +631,7 @@ function log(msg){ SFX.chatter(); const at = performance.now(); commsLog.push({ 
 function markMapped(n){
   if (mapped.has(n.id)) return false;
   mapped.add(n.id); mappedCnt[n.ci]++;
-  n.disp.setRGB(.32,.32,.36);
+  n.disp.setRGB(.6,.6,.64);
   if (nodesGeo){ const ca = nodesGeo.attributes.aColor; ca.setXYZ(n.id, n.disp.r, n.disp.g, n.disp.b); ca.needsUpdate = true; }
   if (holo && n.id % 8 === 0){ holo.mapped.setX(n.id/8, 1); holo.mapped.needsUpdate = true; }
   return true;
@@ -807,14 +807,14 @@ const _dum = new THREE.Object3D(), _up = new THREE.Vector3(0,1,0), _c = new THRE
 function spawnHolo(n){
   if (!freeSlots.length) return null;
   const s = freeSlots.pop(), hsl = {}; _c.set(n.colorHex).getHSL(hsl);
-  const pal = []; for (let k=0;k<5;k++) pal.push(new THREE.Color().setHSL((hsl.h + Math.random()*.16 - .08 + 1)%1, clamp(hsl.s + Math.random()*.3 - .15, .3, 1), clamp(hsl.l + Math.random()*.4 - .2, .25, .75)));
+  const grey = mapped.has(n.id), pal = []; for (let k=0;k<5;k++) pal.push(grey ? new THREE.Color().setHSL(0, 0, .45 + Math.random()*.3) : new THREE.Color().setHSL((hsl.h + Math.random()*.16 - .08 + 1)%1, clamp(hsl.s + Math.random()*.3 - .15, .3, 1), clamp(hsl.l + Math.random()*.4 - .2, .25, .75)));
   const count = 10 + Math.floor(Math.random()*30), cur = new THREE.Vector3(), pts = [];
   for (let i=0;i<ATOMS;i++){ const idx = s*ATOMS + i;
     if (i < count){ pts.push(cur.clone()); _dum.position.copy(cur); _dum.rotation.set(0,0,0); _dum.scale.setScalar(.15 + Math.random()*.5); _dum.updateMatrix();
       atomMesh.setMatrixAt(idx, _dum.matrix); atomMesh.setColorAt(idx, pal[Math.floor(Math.random()*5)]);
       const d = new THREE.Vector3(Math.random()-.5, Math.random()-.5, Math.random()-.5).normalize().multiplyScalar(.5 + Math.random()*1.6); d.addScaledVector(cur, -.15); cur.add(d); }
     else atomMesh.setMatrixAt(idx, ZERO_M); }
-  _c.set(n.colorHex);
+  grey ? _c.setRGB(.6,.6,.64) : _c.set(n.colorHex);
   for (let i=0;i<BONDS;i++){ const idx = s*BONDS + i;
     if (i < count-1){ const d = pts[i].distanceTo(pts[i+1]); _dum.position.copy(pts[i]).lerp(pts[i+1], .5); _dum.scale.set(.07, d, .07);
       _dum.quaternion.setFromUnitVectors(_up, _v.copy(pts[i+1]).sub(pts[i]).normalize()); _dum.updateMatrix(); bondMesh.setMatrixAt(idx, _dum.matrix); bondMesh.setColorAt(idx, _c); }
@@ -1365,7 +1365,8 @@ function drawMission(){
   const top = header(p, 'MISSION', rk, '#ffb347');
   ctx.textAlign = 'left'; ctx.font = `17px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('SCORE', 18, top + 20);
   ctx.font = `700 56px ${FD}`; ctx.fillStyle = '#fff'; ctx.shadowColor = '#ff2e88'; ctx.shadowBlur = 14; ctx.fillText(score.toLocaleString('en-US'), 18, top + 74); ctx.shadowBlur = 0;
-  ctx.font = `20px ${FM}`; ctx.fillStyle = '#00e5ff'; ctx.fillText(`DRONES ${drones.length}`, 18, top + 112);
+  ctx.font = `18px ${FM}`; ctx.fillStyle = '#a7a7af'; ctx.fillText(`${(mapped.size/N*100).toFixed(1)}% VISITED`, 18, top + 98);
+  ctx.font = `20px ${FM}`; ctx.fillStyle = '#00e5ff'; ctx.fillText(`DRONES ${drones.length}`, 18, top + 124);
   if (objective){ const s = SECT[objective.ci];
     ctx.font = `24px ${FM}`; ctx.fillStyle = '#8a7aa8'; ctx.fillText('OBJECTIVE', 300, top + 20);
     ctx.font = `700 38px ${FD}`; ctx.fillStyle = s.css; ctx.fillText(`${objective.type === 'deploy' ? 'DEPLOY' : 'SEQUENCE'} ${objective.type === 'deploy' ? objective.need + ' WALKS' : objective.need}`, 300, top + 62, 402);
@@ -1432,7 +1433,7 @@ const HOLO_PT_VS = `attribute vec3 aPosA; attribute vec3 aPosB; attribute vec3 a
     vec4 mv = modelViewMatrix*vec4(p,1.); float tw = .78 + .22*sin(uTime*1.7 + aSeed*50.);
     gl_PointSize = clamp(aSize*uScale*tw/-mv.z, 0., 64.); gl_Position = projectionMatrix*mv;
     float flash = exp(-3.9*max(0., uTime - aFlash));
-    vec3 c = mix(aColor, vec3(.32,.32,.36), aMapped);
+    vec3 c = mix(aColor, vec3(.6,.6,.64), aMapped);
     vC = mix(c*(.42 + .22*sin(uTime*2. + aSeed*40.)), vec3(1.), flash*.8); vF = 0.; }`;
 const HOLO_LN_VS = `attribute vec3 aPosA; attribute vec3 aPosB; attribute vec3 aColor; attribute float aSeed; attribute float aBirth; attribute float aCross;
   uniform float uK; uniform float uTime; uniform float uWob; varying vec3 vC; ${WOB}
