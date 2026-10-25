@@ -91,7 +91,7 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
   <div class="card">
     <div class="kicker">LBI NETMED · DATASPACE RECON</div>
     <h1>INTERACTOME<span>FLIGHT DECK</span></h1>
-    <p class="lede">Fly a slow recon craft through a 16,000-protein interaction network. Drift close to a node to sequence it, fire tracers to launch random walks, and map the network as visited nodes turn grey.</p>
+    <p class="lede">Fly a slow recon craft through a 16,000-protein interaction network. Drift close to a node to sequence it, fire tracers to launch random walks, and watch mapped nodes light up in color.</p>
     <div class="sync"><span id="sync-lbl">SYNCING DATASPACE</span><div class="bar"><i id="sync-bar"></i></div></div>
     <div class="btns">
       <button class="go" id="btn-launch" type="button" disabled>LAUNCH</button>
@@ -386,7 +386,7 @@ function generateNetwork(){
     const ci = Math.floor(srand()*SECT.length), mi = ci*MODS + Math.floor(Math.pow(srand(),1.6)*MODS), m = mods[mi];
     const p = new THREE.Vector3(m.x + gauss()*m.r, m.y + gauss()*m.r, m.z + gauss()*m.r);
     const s = SECT[ci], pre = s.prefix[Math.floor(srand()*s.prefix.length)];
-    nodes.push({ id:i, position:p, ci, mod:mi, colorHex:s.color, base:s.c3, disp:s.c3.clone(), name:`${pre}-${100+Math.floor(srand()*900)}`,
+    nodes.push({ id:i, position:p, ci, mod:mi, colorHex:s.color, base:s.c3, disp:new THREE.Color(.6,.6,.64), name:`${pre}-${100+Math.floor(srand()*900)}`,
       fit:Math.min(40, Math.pow(srand(), -0.62)), degree:0, neighbors:[], r1:srand(), r2:srand() });
     POS[i*3] = p.x; POS[i*3+1] = p.y; POS[i*3+2] = p.z; seed[i] = srand(); s.total++;
   }
@@ -421,7 +421,7 @@ function generateNetwork(){
     const a = hubs[Math.floor(srand()*hubs.length)], b = hubs[Math.floor(srand()*hubs.length)];
     if (a.ci !== b.ci && link(a,b,true)) bridgeCount++;
   }
-  nodes.forEach((n,i) => { size[i] = 1.9 + Math.sqrt(n.degree)*.85; col[i*3] = n.base.r; col[i*3+1] = n.base.g; col[i*3+2] = n.base.b; if (n.degree > maxDeg) maxDeg = n.degree; });
+  nodes.forEach((n,i) => { size[i] = 1.9 + Math.sqrt(n.degree)*.85; col[i*3] = n.disp.r; col[i*3+1] = n.disp.g; col[i*3+2] = n.disp.b; if (n.degree > maxDeg) maxDeg = n.degree; });
   meanK = 2*edgeCount/N;
 
   nodesGeo = new THREE.BufferGeometry();
@@ -658,12 +658,16 @@ function log(msg){ SFX.chatter(); const at = performance.now(); commsLog.push({ 
 function markMapped(n){
   if (mapped.has(n.id)) return false;
   mapped.add(n.id); mappedCnt[n.ci]++;
-  n.disp.setRGB(.6,.6,.64);
-  if (nodesGeo){ const ca = nodesGeo.attributes.aColor; ca.setXYZ(n.id, n.disp.r, n.disp.g, n.disp.b); ca.needsUpdate = true; }
-  if (holo && n.id % 8 === 0){ holo.mapped.setX(n.id/8, 1); holo.mapped.needsUpdate = true; }
-  const h = activeHolos.get(n.id); if (h) greyHolo(h);
+  setNodeMappedColor(n);
   return true;
 }
+function setNodeMappedColor(n){
+  n.disp.copy(mapped.has(n.id) ? n.base : _nodeGrey);
+  if (nodesGeo){ const ca = nodesGeo.attributes.aColor; ca.setXYZ(n.id, n.disp.r, n.disp.g, n.disp.b); ca.needsUpdate = true; }
+  if (holo && n.id % 8 === 0){ holo.mapped.setX(n.id/8, mapped.has(n.id) ? 1 : 0); holo.mapped.needsUpdate = true; }
+  const h = activeHolos.get(n.id); if (h && mapped.has(n.id)) colorHolo(h, n);
+}
+const _nodeGrey = new THREE.Color(.6,.6,.64);
 
 // ---------------------------------------------------------------- flight
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _e = new THREE.Euler();
@@ -838,14 +842,14 @@ const _dum = new THREE.Object3D(), _up = new THREE.Vector3(0,1,0), _c = new THRE
 function spawnHolo(n){
   if (!freeSlots.length) return null;
   const s = freeSlots.pop(), hsl = {}; _c.set(n.colorHex).getHSL(hsl);
-  const grey = mapped.has(n.id), pal = []; for (let k=0;k<5;k++) pal.push(grey ? new THREE.Color().setHSL(0, 0, .45 + Math.random()*.3) : new THREE.Color().setHSL((hsl.h + Math.random()*.16 - .08 + 1)%1, clamp(hsl.s + Math.random()*.3 - .15, .3, 1), clamp(hsl.l + Math.random()*.4 - .2, .25, .75)));
+  const colored = mapped.has(n.id), pal = []; for (let k=0;k<5;k++) pal.push(colored ? new THREE.Color().setHSL((hsl.h + Math.random()*.16 - .08 + 1)%1, clamp(hsl.s + Math.random()*.3 - .15, .3, 1), clamp(hsl.l + Math.random()*.4 - .2, .25, .75)) : new THREE.Color().setHSL(0, 0, .45 + Math.random()*.3));
   const count = 10 + Math.floor(Math.random()*30), cur = new THREE.Vector3(), pts = [];
   for (let i=0;i<ATOMS;i++){ const idx = s*ATOMS + i;
     if (i < count){ pts.push(cur.clone()); _dum.position.copy(cur); _dum.rotation.set(0,0,0); _dum.scale.setScalar(.15 + Math.random()*.5); _dum.updateMatrix();
       atomMesh.setMatrixAt(idx, _dum.matrix); atomMesh.setColorAt(idx, pal[Math.floor(Math.random()*5)]);
       const d = new THREE.Vector3(Math.random()-.5, Math.random()-.5, Math.random()-.5).normalize().multiplyScalar(.5 + Math.random()*1.6); d.addScaledVector(cur, -.15); cur.add(d); }
     else atomMesh.setMatrixAt(idx, ZERO_M); }
-  grey ? _c.setRGB(.6,.6,.64) : _c.set(n.colorHex);
+  colored ? _c.set(n.colorHex) : _c.setRGB(.6,.6,.64);
   for (let i=0;i<BONDS;i++){ const idx = s*BONDS + i;
     if (i < count-1){ const d = pts[i].distanceTo(pts[i+1]); _dum.position.copy(pts[i]).lerp(pts[i+1], .5); _dum.scale.set(.07, d, .07);
       _dum.quaternion.setFromUnitVectors(_up, _v.copy(pts[i+1]).sub(pts[i]).normalize()); _dum.updateMatrix(); bondMesh.setMatrixAt(idx, _dum.matrix); bondMesh.setColorAt(idx, _c); }
@@ -856,10 +860,15 @@ function spawnHolo(n){
   holoU.uHP.value.set([n.position.x, n.position.y, n.position.z, scale], s*4); holoU.uHQ.value.set([0,0,0,1], s*4); holoU.uHF.value[s] = 0;
   activeHolos.set(n.id, h); return h;
 }
-function greyHolo(h){
-  const s = h.slot, g = new THREE.Color();
-  for (let i=0;i<h.count;i++){ const l = .45 + Math.random()*.3; atomMesh.setColorAt(s*ATOMS + i, g.setRGB(l, l, l*1.03)); }
-  _c.setRGB(.6,.6,.64); for (let i=0;i<h.count-1;i++) bondMesh.setColorAt(s*BONDS + i, _c);
+function colorHolo(h, n){
+  const s = h.slot, hsl = {}; _c.set(n.colorHex).getHSL(hsl);
+  for (let i=0;i<h.count;i++){
+    const hue = (hsl.h + Math.random()*.16 - .08 + 1)%1;
+    const saturation = clamp(hsl.s + Math.random()*.3 - .15, .3, 1);
+    const lightness = clamp(hsl.l + Math.random()*.4 - .2, .25, .75);
+    atomMesh.setColorAt(s*ATOMS + i, _c.setHSL(hue, saturation, lightness));
+  }
+  _c.set(n.colorHex); for (let i=0;i<h.count-1;i++) bondMesh.setColorAt(s*BONDS + i, _c);
   upd.aLo = Math.min(upd.aLo, s*ATOMS); upd.aHi = Math.max(upd.aHi, s*ATOMS + ATOMS - 1); upd.bLo = Math.min(upd.bLo, s*BONDS); upd.bHi = Math.max(upd.bHi, s*BONDS + BONDS - 1);
 }
 function flushHoloBuffers(){
@@ -903,7 +912,7 @@ function updateHolograms(dt){
 }
 function markSequenced(n, live, dronePos, droneCount){
   if (sequenced.has(n.id)) return;
-  sequenced.add(n.id); seqMark[n.id] = 1; seqCnt[n.ci]++; markMapped(n);
+  sequenced.add(n.id); seqMark[n.id] = 1; seqCnt[n.ci]++; markMapped(n); setNodeMappedColor(n);
   if (!live) return;
   SFX.bleep('done', dronePos, droneCount);
   let pts = 100 + n.degree*8; activity[n.ci] += 6;
@@ -1306,7 +1315,7 @@ function drawEgo(t){
       ctx.beginPath(); ctx.moveTo(P[a][0],P[a][1]); ctx.lineTo(P[b][0],P[b][1]); ctx.stroke();
       if (core){ const k = (t*.6 + b*.13)%1; ctx.fillStyle = '#fff'; ctx.fillRect(P[a][0]+(P[b][0]-P[a][0])*k-2, P[a][1]+(P[b][1]-P[a][1])*k-2, 4, 4); } });
     ego.items.forEach((it,i) => { const r = it.ring === 0 ? 12 : it.ring === 1 ? 7 : 4;
-      const color = mapped.has(it.n.id) ? '#777780' : it.n.colorHex;
+      const color = mapped.has(it.n.id) ? it.n.colorHex : '#99999f';
       glowDot(ctx, P[i][0], P[i][1], r, color, it.ring === 0 ? 22 : 8);
       if (mapped.has(it.n.id)){ ctx.strokeStyle = '#a7a7af'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(P[i][0],P[i][1],r+5,0,Math.PI*2); ctx.stroke(); } });
     ctx.font = `700 22px ${FM}`; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(targetNode.name, cx, cy - 22);
@@ -1316,7 +1325,7 @@ function drawEgo(t){
   ctx.font = `19px ${FM}`; ctx.textAlign = 'left'; ctx.fillStyle = '#8a7aa8';
   if (ego){ ctx.fillText('k', 18, h-15); ctx.fillStyle = '#fff'; ctx.fillText(String(targetNode.degree), 36, h-15);
     ctx.fillStyle = '#8a7aa8'; ctx.fillText('C', 96, h-15); ctx.fillStyle = '#fff'; ctx.fillText(ego.cc.toFixed(2), 116, h-15);
-    ctx.textAlign = 'right'; const sq = seqMark[targetNode.id], mp = mapped.has(targetNode.id); ctx.fillStyle = sq ? '#a7a7af' : SECT[targetNode.ci].css; ctx.fillText(sq ? 'SEQUENCED' : mp ? 'MAPPED' : SECT[targetNode.ci].label, w-18, h-15); }
+    ctx.textAlign = 'right'; const sq = seqMark[targetNode.id], mp = mapped.has(targetNode.id); ctx.fillStyle = mp ? SECT[targetNode.ci].css : '#99999f'; ctx.fillText(sq ? 'SEQUENCED' : mp ? 'MAPPED' : SECT[targetNode.ci].label, w-18, h-15); }
   else ctx.fillText('FLY CLOSER TO LOCK A NODE', 18, h-15);
   finish(p);
 }
@@ -1523,7 +1532,7 @@ const HOLO_PT_VS = `attribute vec3 aPosA; attribute vec3 aPosB; attribute vec3 a
     vec4 mv = modelViewMatrix*vec4(p,1.); float tw = .78 + .22*sin(uTime*1.7 + aSeed*50.);
     gl_PointSize = clamp(aSize*uScale*tw/-mv.z, 0., 64.); gl_Position = projectionMatrix*mv;
     float flash = exp(-3.9*max(0., uTime - aFlash));
-    vec3 c = mix(aColor, vec3(.6,.6,.64), aMapped);
+    vec3 c = mix(vec3(.6,.6,.64), aColor, aMapped);
     vC = mix(c*(.42 + .22*sin(uTime*2. + aSeed*40.)), vec3(1.), flash*.8); vF = 0.; }`;
 const HOLO_LN_VS = `attribute vec3 aPosA; attribute vec3 aPosB; attribute vec3 aColor; attribute float aSeed; attribute float aBirth; attribute float aCross;
   uniform float uK; uniform float uTime; uniform float uWob; varying vec3 vC; ${WOB}
