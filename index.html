@@ -75,11 +75,17 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 #lvl.on{display:grid}
 #lvl h2{margin:0;font-size:clamp(34px,9vw,96px);letter-spacing:.08em;color:#fff;text-shadow:0 0 28px var(--pink)}
 #lvl p{font-family:var(--f-disp);font-size:clamp(14px,2.4vw,22px);letter-spacing:.2em;color:var(--cyan)}
+#toast{position:fixed;z-index:15;top:22%;left:50%;transform:translate(-50%,-10px);opacity:0;pointer-events:none;text-align:center;font-family:var(--f-disp);letter-spacing:.25em;transition:opacity .35s,transform .35s}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+#toast b{display:block;font-size:clamp(18px,3vw,30px);color:#fff;text-shadow:0 0 18px var(--cyan)}
+#toast span{font-size:12px;color:var(--cyan)}
+#toast.max b{text-shadow:0 0 18px var(--sun);color:var(--sun)}
 </style>
 
 <div id="stage"></div>
 <div id="grain"></div>
 <div id="hud"><div class="lv" id="hud-lv"></div><div class="pc" id="hud-pc">0.0%</div><div class="tg" id="hud-tg"></div><div class="track"><i id="hud-bar"></i><b id="hud-tick"></b></div></div>
+<div id="toast"><b id="toast-h"></b><span id="toast-p"></span></div>
 <div id="lvl"><div><h2 id="lvl-h"></h2><p id="lvl-p"></p></div></div>
 <div id="splash">
   <div class="card">
@@ -199,7 +205,7 @@ const RANKS = [[0,'CADET'],[800,'PILOT'],[2500,'NAVIGATOR'],[6000,'CARTOGRAPHER'
 const N = 16000, CELL = 28, MODS = 12;
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-const LEVEL_TARGETS = [0.8, 0.9, 1.0];
+const LEVEL_TARGETS = [0.8, 0.9, 0.95];
 const GAME = (() => { let g = null; try { g = JSON.parse(sessionStorage.getItem('ppi-game')); } catch (e) {}
   return g && g.level >= 1 && g.level <= 3 ? g : { level:1, seed:20261021, score:0, launched:false }; })();
 const srand = mulberry32(GAME.seed);
@@ -907,13 +913,22 @@ function markSequenced(n, live, dronePos, droneCount){
 }
 function completeObjective(){
   score += 500; log(`OBJECTIVE COMPLETE +500 · ${SECT[objective.ci].label}`);
-  const reward = GAME.level === 3 ? 4 : GAME.level === 2 ? 2 : 1;
+  const reward = GAME.level === 3 ? 4 : GAME.level === 2 ? 2 : 1, before = drones.length;
   for (let i=0;i<reward;i++) spawnDrone();
+  const gained = drones.length - before, lim = droneLimit(GAME.level);
+  if (drones.length >= lim) toast('MAX DRONES', `${drones.length} / ${lim} · FLEET AT CAPACITY FOR LEVEL ${GAME.level}`, true);
+  else if (gained > 0) toast(`+${gained} DRONE${gained > 1 ? 'S' : ''}`, `FLEET ${drones.length} / ${lim}`);
   newObjective();
 }
 // ---------------------------------------------------------------- sequencing drones (one earned per completed objective)
-const drones = [], DRONE_R = 9, DRONE_LEAD = 32, DRONE_MAX = 48;
-const droneLimit = level => DRONE_MAX * (level === 3 ? 4 : level === 2 ? 2 : 1);
+const drones = [], DRONE_R = 9, DRONE_LEAD = 32;
+const droneLimit = level => level === 3 ? 50 : level === 2 ? 40 : 20;
+let toastTimer = 0;
+function toast(head, sub, max){
+  const el = $('toast'); $('toast-h').textContent = head; $('toast-p').textContent = sub;
+  el.classList.toggle('max', !!max); el.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), 2600);
+}
 const DRONE_WALK_MIN = 49, DRONE_WALK_MAX = 99;
 const nextDroneWalk = () => DRONE_WALK_MIN + Math.random()*(DRONE_WALK_MAX-DRONE_WALK_MIN);
 const randomConnectedNode = () => connectedNodes[Math.floor(Math.random()*connectedNodes.length)] || null;
