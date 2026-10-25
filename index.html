@@ -598,10 +598,9 @@ function buildCockpit(){
   // every instrument sits on the single bar, edge to edge
   const RW = .19, RH = .143, CW = .286;
   mountScreen('deg',  -1.282, RW, RH);
-  mountScreen('ego',   -.934, RW, RH);
-  mountScreen('comms', -.5, CW, RH);
-  mountScreen('mission', .5, CW, RH);
-  mountScreen('flux',   .934, RW, RH);
+  mountScreen('ego',   -.6, RW, RH);
+  mountScreen('flux',   .6, RW, RH);
+  mountCorner('comms', -1), mountCorner('mission', 1);
   mountScreen('motif', 1.282, RW, RH);
 
   const compassMesh = new THREE.Mesh(new THREE.PlaneGeometry(.62, .062), new THREE.MeshBasicMaterial({ map:screens.compass.tex, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false, toneMapped:false }));
@@ -631,6 +630,11 @@ function mountScreen(key, az, w, h){
   const g = new THREE.Group(); g.position.set(r*Math.sin(az), y, -r*Math.cos(az));
   g.rotation.order = 'YXZ'; g.rotation.y = -az; g.rotation.x = -TILT; cockpitRoot.add(g);
   screenBody(g, w, h, screens[key]);
+}
+
+function mountCorner(key, side){
+  const g = new THREE.Group(); g.position.set(side*.8, .5, -1.2); g.lookAt(0, 0, 0); rig.add(g);
+  screenBody(g, .5, .25, screens[key]);
 }
 
 // ================================================================ game state
@@ -1376,9 +1380,9 @@ function drawFlux(){
   SECT.forEach((s,i) => { const cy = top + 8 + i*rowH + rowH/2;
     ctx.fillStyle = s.css; ctx.textAlign = 'left'; ctx.fillText((objective && objective.ci === i ? '◆ ' : '  ') + s.label, 12, cy+6);
     ctx.fillStyle = 'rgba(166,107,255,.14)'; ctx.fillRect(bx, cy-5, bwid, 10);
-    const fr = Math.min(1, mappedCnt[i]/s.total*12), sf = Math.min(1, seqCnt[i]/s.total*12);
+    const fr = Math.min(1, mappedCnt[i]/s.total), sf = Math.min(1, seqCnt[i]/s.total);
     ctx.fillStyle = rgba(s.color,.55); ctx.fillRect(bx, cy-5, Math.max(2,bwid*fr), 10); ctx.fillStyle = '#fff'; ctx.fillRect(bx, cy-5, bwid*sf, 10);
-    const lv = clamp(activity[i]/12, 0, 1); for (let k=0;k<6;k++){ ctx.fillStyle = lv > k/6 ? s.css : 'rgba(255,255,255,.07)'; ctx.fillRect(w-88+k*13, cy-7, 9, 14); } });
+    ctx.fillStyle = s.css; ctx.textAlign = 'right'; ctx.fillText((fr*100).toFixed(fr < .1 ? 1 : 0) + '%', w-12, cy+6); });
   const gy = top + 8 + rows*rowH + 14, gh = h - gy - 34, gx = 12, gw = w - 24;
   ctx.strokeStyle = 'rgba(0,229,255,.09)'; ctx.lineWidth = 1; for (let i=0;i<=2;i++){ const y = gy + gh*i/2; ctx.beginPath(); ctx.moveTo(gx,y); ctx.lineTo(gx+gw,y); ctx.stroke(); }
   const S = telemetry.spd, Wk = telemetry.wlk, NS = 150;
