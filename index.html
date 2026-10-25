@@ -71,7 +71,7 @@ button.go:focus-visible{outline:2px solid #fff;outline-offset:3px}
 #hud .track{position:relative;height:14px;margin-top:6px;background:rgba(166,107,255,.2);border:1px solid rgba(166,107,255,.45)}
 #hud .track i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--pink));box-shadow:0 0 10px var(--pink)}
 #hud .track b{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--sun)}
-#lvl{position:fixed;inset:0;z-index:25;display:none;place-items:center;text-align:center;background:rgba(7,1,15,.82);font-family:var(--f-wide);cursor:pointer}
+#lvl{position:fixed;inset:0;z-index:25;display:none;place-items:center;text-align:center;background:rgba(7,1,15,.82);font-family:var(--f-wide)}
 #lvl.on{display:grid}
 #lvl h2{margin:0;font-size:clamp(34px,9vw,96px);letter-spacing:.08em;color:#fff;text-shadow:0 0 28px var(--pink)}
 #lvl p{font-family:var(--f-disp);font-size:clamp(14px,2.4vw,22px);letter-spacing:.2em;color:var(--cyan)}
@@ -1671,14 +1671,14 @@ function advanceLevel(){
   levelBusy = true;
   const win = GAME.level >= 3, next = win ? 1 : GAME.level + 1;
   $('lvl-h').textContent = win ? 'YOU WIN' : `LEVEL ${next}`;
-  $('lvl-p').textContent = win ? 'NETWORK FULLY MAPPED · CLICK TO PLAY AGAIN' : `NEW NETWORK · EXPLORE ${Math.round(LEVEL_TARGETS[next-1]*100)}% · CLICK TO CONTINUE`;
+  $('lvl-p').textContent = win ? 'NETWORK FULLY MAPPED · RESTARTING AUTOMATICALLY' : `NEW NETWORK · EXPLORE ${Math.round(LEVEL_TARGETS[next-1]*100)}% · STARTING AUTOMATICALLY`;
   $('lvl').classList.add('on');
   let done = false;
   const go = () => { if (done) return; done = true;
     const nextDrones = win ? 0 : next === 2 ? Math.min(droneLimit(next), drones.length*2) : drones.length;
     try { sessionStorage.setItem('ppi-game', JSON.stringify({ level:next, seed:(Math.random()*4294967295)>>>0, score:win ? 0 : score, drones:nextDrones, launched:true })); sessionStorage.removeItem('ppi-hot'); } catch (e) {}
     location.reload(); };
-  $('lvl').onclick = go; setTimeout(go, win ? 8000 : 4000);
+  setTimeout(go, win ? 8000 : 4000);
 }
 
 function launch(){
